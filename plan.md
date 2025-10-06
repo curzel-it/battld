@@ -16,7 +16,7 @@ Transitioning Battld from a single tic-tac-toe game to a hub supporting multiple
 - **Separation**: Game logic completely isolated from server/networking logic
 
 ### 2. Game Organization
-- **One game = One module** (e.g., `games/tictactoe.rs`, `games/rockpaperscissors.rs`)
+- **One game = One module** (e.g., `games/tic_tac_toe.rs`, `games/rock_paper_scissors.rs`)
 - Server orchestrates but doesn't know game rules
 - Designed for N games (not just 2)
 
@@ -75,8 +75,8 @@ Transitioning Battld from a single tic-tac-toe game to a hub supporting multiple
 
 - [x] Create `games/` module structure
   - [x] Create `server/src/games/mod.rs`
-    - **Created**: Exports `tictactoe` module and defines `GameError` enum
-  - [x] Create `server/src/games/tictactoe.rs`
+    - **Created**: Exports `tic_tac_toe` module and defines `GameError` enum
+  - [x] Create `server/src/games/tic_tac_toe.rs`
     - **Created**: Contains all TicTacToe game logic (371 lines)
 
 - [x] Define error types in `games/mod.rs`
@@ -85,20 +85,20 @@ Transitioning Battld from a single tic-tac-toe game to a hub supporting multiple
   - [x] Implement Display/Debug traits
     - **Implemented**: Both `Display` and `std::error::Error` traits
 
-- [x] Implement TicTacToe components in `games/tictactoe.rs`
+- [x] Implement TicTacToe components in `games/tic_tac_toe.rs`
   - [x] Define `TicTacToeMove` struct (row: usize, col: usize)
-    - **Location**: `server/src/games/tictactoe.rs:8-10`
+    - **Location**: `server/src/games/tic_tac_toe.rs:8-10`
     - **Added**: `to_index()` helper method for validation
   - [x] Define `TicTacToeGameState` struct (board, current_player, winner: Option<PlayerSymbol>, is_finished: bool)
-    - **Location**: `server/src/games/tictactoe.rs:24-31`
+    - **Location**: `server/src/games/tic_tac_toe.rs:24-31`
     - **Fields**: `board: [i32; 9]`, `current_player: PlayerSymbol`, `winner: Option<PlayerSymbol>`, `is_finished: bool`
   - [x] Implement `TicTacToeGameState::new()` for fresh game initialization
-    - **Location**: `server/src/games/tictactoe.rs:35-42`
+    - **Location**: `server/src/games/tic_tac_toe.rs:35-42`
   - [x] Define `TicTacToeEngine` struct (stateless, zero-sized or unit struct)
-    - **Location**: `server/src/games/tictactoe.rs:80-82`
+    - **Location**: `server/src/games/tic_tac_toe.rs:80-82`
     - **Type**: Unit struct (stateless)
   - [x] Implement `TicTacToeEngine::update(&self, state: &TicTacToeGameState, player: PlayerSymbol, move: &TicTacToeMove) -> Result<TicTacToeGameState, GameError>`
-    - **Location**: `server/src/games/tictactoe.rs:105-155`
+    - **Location**: `server/src/games/tic_tac_toe.rs:105-155`
     - [x] Validate move is legal (check coordinates, cell occupancy)
     - [x] Check correct player's turn
     - [x] Apply move to create new state
@@ -109,7 +109,7 @@ Transitioning Battld from a single tic-tac-toe game to a hub supporting multiple
 - [x] Refactor server to use TicTacToeEngine
   - [x] Update `Match` struct temporarily to hold `TicTacToeGameState` (not JSON yet)
     - **Decision**: Kept `GameState` in Match, added conversion helpers instead
-    - **Added**: `game_state_to_tictactoe()` and `tictactoe_to_game_state()` in `game_logic.rs:12-27`
+    - **Added**: `game_state_to_tic_tac_toe()` and `tic_tac_toe_to_game_state()` in `game_logic.rs:12-27`
   - [x] Update `handle_make_move_logic()` to:
     - **Location**: `server/src/game_logic.rs:180-333`
     - [x] Get current game state from match (line 236)
@@ -121,7 +121,7 @@ Transitioning Battld from a single tic-tac-toe game to a hub supporting multiple
     - **Location**: `game_logic.rs:122` - Uses `GameState::new()` which maps to fresh TicTacToeGameState
 
 - [x] Write comprehensive tests for TicTacToeEngine
-  - **Location**: `server/src/games/tictactoe.rs:158-337`
+  - **Location**: `server/src/games/tic_tac_toe.rs:158-337`
   - **Total**: 11 comprehensive tests
   - [x] Test valid moves (`test_valid_move`)
   - [x] Test illegal moves (out of bounds, occupied cell, wrong turn)
@@ -320,7 +320,7 @@ Client determines UI state by examining game state:
 
 #### Implementation Tasks
 
-- [ ] Define RPS types in `games/rockpaperscissors.rs`
+- [ ] Define RPS types in `games/rock_paper_scissors.rs`
   - [ ] Create `RPSMove` enum (Rock, Paper, Scissors) with serde serialization
   - [ ] Create `RPSGameState` struct with `rounds: Vec<(Option<RPSMove>, Option<RPSMove>)>`
   - [ ] Implement `RPSGameState::new()` to return initial state `[(None, None)]`
@@ -331,7 +331,7 @@ Client determines UI state by examining game state:
     - `get_winner() -> Option<PlayerSymbol>` (who has 2 wins)
     - `compute_round_winner(p1_move: RPSMove, p2_move: RPSMove) -> Option<PlayerSymbol>`
 
-- [ ] Implement RPS engine in `games/rockpaperscissors.rs`
+- [ ] Implement RPS engine in `games/rock_paper_scissors.rs`
   - [ ] Define `RPSEngine` struct (stateless)
   - [ ] Implement `RPSEngine::update(&self, state: &RPSGameState, player: PlayerSymbol, move_choice: RPSMove) -> Result<RPSGameState, GameError>`
     - Check game is not finished

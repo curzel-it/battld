@@ -1,4 +1,5 @@
-pub mod tictactoe;
+pub mod tic_tac_toe;
+pub mod rock_paper_scissors;
 
 use std::fmt;
 

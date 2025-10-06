@@ -1,4 +1,4 @@
-use crate::games::{tictactoe::*, GameError};
+use crate::games::{tic_tac_toe::*, rock_paper_scissors::*, GameError};
 use battld_common::{GameType, Match, MatchOutcome};
 use serde_json::Value as JsonValue;
 
@@ -16,17 +16,12 @@ pub fn handle_game_move(
     move_data: JsonValue,
 ) -> Result<GameMoveResult, GameError> {
     match game_match.game_type {
-        GameType::TicTacToe => handle_tictactoe_move(game_match, player_id, move_data),
-        GameType::RockPaperScissors => {
-            // Not yet implemented
-            Err(GameError::IllegalMove(
-                "Rock-Paper-Scissors not yet implemented".to_string(),
-            ))
-        }
+        GameType::TicTacToe => handle_tic_tac_toe_move(game_match, player_id, move_data),
+        GameType::RockPaperScissors => handle_rps_move(game_match, player_id, move_data),
     }
 }
 
-fn handle_tictactoe_move(
+fn handle_tic_tac_toe_move(
     game_match: &Match,
     player_id: i64,
     move_data: JsonValue,
@@ -36,7 +31,7 @@ fn handle_tictactoe_move(
         .map_err(|e| GameError::IllegalMove(format!("Invalid game state: {}", e)))?;
 
     // Deserialize the move data
-    let tictactoe_move: TicTacToeMove = serde_json::from_value(move_data)
+    let tic_tac_toe_move: TicTacToeMove = serde_json::from_value(move_data)
         .map_err(|e| GameError::IllegalMove(format!("Invalid move data: {}", e)))?;
 
     // Determine which player symbol this player is
@@ -50,7 +45,7 @@ fn handle_tictactoe_move(
 
     // Call the TicTacToe engine to process the move
     let engine = TicTacToeEngine;
-    let new_state = engine.update(&current_state, player_symbol, &tictactoe_move)?;
+    let new_state = engine.update(&current_state, player_symbol, &tic_tac_toe_move)?;
 
     // Serialize the new state back to JSON
     let new_state_json = serde_json::to_value(&new_state)
@@ -74,13 +69,66 @@ fn handle_tictactoe_move(
     })
 }
 
+fn handle_rps_move(
+    game_match: &Match,
+    player_id: i64,
+    move_data: JsonValue,
+) -> Result<GameMoveResult, GameError> {
+    // Deserialize the current game state from JSON
+    let current_state: RPSGameState = serde_json::from_value(game_match.game_state.clone())
+        .map_err(|e| GameError::IllegalMove(format!("Invalid game state: {}", e)))?;
+
+    // Deserialize the move data - expects {"choice": "rock"|"paper"|"scissors"}
+    #[derive(serde::Deserialize)]
+    struct RPSMoveData {
+        choice: RPSMove,
+    }
+
+    let move_data: RPSMoveData = serde_json::from_value(move_data)
+        .map_err(|e| GameError::IllegalMove(format!("Invalid move data: {}", e)))?;
+
+    // Determine which player symbol this player is
+    let player_symbol = if player_id == game_match.player1_id {
+        1
+    } else if player_id == game_match.player2_id {
+        2
+    } else {
+        return Err(GameError::InvalidPlayer);
+    };
+
+    // Call the RPS engine to process the move
+    let engine = RPSEngine;
+    let new_state = engine.update(&current_state, player_symbol, move_data.choice)?;
+
+    // Serialize the new state back to JSON
+    let new_state_json = serde_json::to_value(&new_state)
+        .map_err(|e| GameError::IllegalMove(format!("Failed to serialize state: {}", e)))?;
+
+    // Determine outcome if game is finished
+    let outcome = if new_state.is_finished() {
+        match new_state.get_winner() {
+            Some(1) => Some(MatchOutcome::Player1Win),
+            Some(2) => Some(MatchOutcome::Player2Win),
+            _ => Some(MatchOutcome::Draw), // Should not happen with "first to 2 wins" logic
+        }
+    } else {
+        None
+    };
+
+    Ok(GameMoveResult {
+        new_state: new_state_json,
+        is_finished: new_state.is_finished(),
+        outcome,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use battld_common::GameType;
 
     #[test]
-    fn test_tictactoe_valid_move() {
+    fn test_tic_tac_toe_valid_move() {
         // Create initial TicTacToe state
         let initial_state = TicTacToeGameState::new();
         let state_json = serde_json::to_value(&initial_state).unwrap();
@@ -110,7 +158,7 @@ mod tests {
     }
 
     #[test]
-    fn test_tictactoe_invalid_player() {
+    fn test_tic_tac_toe_invalid_player() {
         let initial_state = TicTacToeGameState::new();
         let state_json = serde_json::to_value(&initial_state).unwrap();
 
@@ -133,7 +181,7 @@ mod tests {
     }
 
     #[test]
-    fn test_tictactoe_wrong_turn() {
+    fn test_tic_tac_toe_wrong_turn() {
         let initial_state = TicTacToeGameState::new();
         let state_json = serde_json::to_value(&initial_state).unwrap();
 
@@ -156,7 +204,11 @@ mod tests {
     }
 
     #[test]
-    fn test_rps_not_implemented() {
+    fn test_rps_valid_move() {
+        // Create initial RPS state
+        let initial_state = RPSGameState::new();
+        let state_json = serde_json::to_value(&initial_state).unwrap();
+
         let game_match = Match {
             id: 1,
             player1_id: 100,
@@ -165,12 +217,19 @@ mod tests {
             outcome: None,
             game_type: GameType::RockPaperScissors,
             current_player: 1,
-            game_state: serde_json::json!({}),
+            game_state: state_json,
         };
 
+        // Player 1 makes a move
         let move_data = serde_json::json!({ "choice": "rock" });
-        let result = handle_game_move(&game_match, 100, move_data);
+        let result = handle_game_move(&game_match, 100, move_data).unwrap();
 
-        assert!(matches!(result, Err(GameError::IllegalMove(_))));
+        assert!(!result.is_finished);
+        assert!(result.outcome.is_none());
+
+        // Verify the state was updated (player 1's move should be recorded)
+        let new_state: RPSGameState = serde_json::from_value(result.new_state).unwrap();
+        assert_eq!(new_state.rounds[0].0, Some(RPSMove::Rock));
+        assert_eq!(new_state.rounds[0].1, None); // Player 2 hasn't moved yet
     }
 }

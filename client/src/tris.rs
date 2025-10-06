@@ -11,7 +11,7 @@ use crate::websocket::WebSocketClient;
 use std::fs::OpenOptions;
 
 /// Helper to extract GameState from Match for TicTacToe
-fn get_tictactoe_state(game_match: &Match) -> Result<GameState, Box<dyn std::error::Error>> {
+fn get_tic_tac_toe_state(game_match: &Match) -> Result<GameState, Box<dyn std::error::Error>> {
     serde_json::from_value(game_match.game_state.clone())
         .map_err(|e| format!("Failed to deserialize game state: {}", e).into())
 }
@@ -98,7 +98,7 @@ async fn run_game_loop(session: &SessionState, mut game_match: Match) -> Result<
             // A draw from disconnect will have outcome=Draw but the board won't be full
             let is_disconnect_draw = if let Some(MatchOutcome::Draw) = game_match.outcome {
                 // Check if board is full or has a winner
-                let state = get_tictactoe_state(&game_match)?;
+                let state = get_tic_tac_toe_state(&game_match)?;
                 let board_full = state.is_full();
                 let has_winner = state.check_winner().is_some();
 
@@ -404,7 +404,7 @@ fn display_match(game_match: &Match, current_player_id: i64) {
     }
 
     println!();
-    let state = get_tictactoe_state(&game_match).unwrap_or_else(|_| GameState::new());
+    let state = get_tic_tac_toe_state(&game_match).unwrap_or_else(|_| GameState::new());
     display_board(&state, my_number);
 }
 

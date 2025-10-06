@@ -1,7 +1,8 @@
 use battld_common::{GameType, MatchOutcome, MatchEndReason, ServerMessage};
 use crate::database::Database;
 use crate::game_router;
-use crate::games::tictactoe::TicTacToeGameState;
+use crate::games::tic_tac_toe::TicTacToeGameState;
+use crate::games::rock_paper_scissors::RPSGameState;
 
 /// Represents a message to be sent to a specific player
 #[derive(Debug, Clone)]
@@ -130,8 +131,8 @@ pub async fn handle_join_matchmaking_logic(
                 serde_json::to_string(&state).unwrap()
             }
             GameType::RockPaperScissors => {
-                // Not yet implemented - placeholder
-                "{}".to_string()
+                let state = RPSGameState::new();
+                serde_json::to_string(&state).unwrap()
             }
         };
 

@@ -2,6 +2,7 @@ pub mod api;
 pub mod auth;
 pub mod config;
 pub mod leaderboard;
+pub mod rps;
 pub mod state;
 pub mod stats;
 pub mod tris;
@@ -261,8 +262,11 @@ async fn start_game_flow(session: &mut SessionState, game_type: battld_common::G
     println!("\n{}", format!("Starting {} matchmaking...", game_name).cyan());
     println!("{}", "Waiting for opponent...".dimmed());
 
-    // Connect to WebSocket and join matchmaking
-    tris::start_game(session, game_type).await?;
+    // Route to appropriate game module
+    match game_type {
+        battld_common::GameType::TicTacToe => tris::start_game(session, game_type).await?,
+        battld_common::GameType::RockPaperScissors => rps::start_game(session, game_type).await?,
+    }
 
     Ok(())
 }
