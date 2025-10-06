@@ -556,7 +556,7 @@ def print_summary():
     print("\n")
 
 def git_pull():
-    os.system("cd /root/battld && git pull origin main")
+    os.system("cd /root/battld && git pull origin $(git branch --show-current)")
 
 def main():
     """Main installation flow."""
