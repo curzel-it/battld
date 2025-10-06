@@ -1,0 +1,14 @@
+.env
+logs/
+client.log
+server_logs.txt
+/target
+.claude/
+*.db
+~*
+*.pem
+config.json
+sshprod.sh
+sshprodupdate.sh
+reset.ps1
+reset.sh

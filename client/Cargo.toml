@@ -1,0 +1,25 @@
+[package]
+name = "client"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "client"
+path = "src/main.rs"
+
+[dependencies]
+battld-common = { path = "../common" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+rsa = { version = "0.9", features = ["sha2"] }
+sha2 = "0.10"
+base64 = "0.22"
+reqwest = { version = "0.11", features = ["json", "rustls-tls"], default-features = false }
+tokio = { version = "1.0", features = ["full"] }
+tokio-tungstenite = { version = "0.24", features = ["rustls-tls-webpki-roots"] }
+futures-util = "0.3"
+rand = "0.8"
+colored = "2.0"
+crossterm = "0.27"
+dotenvy = "0.15.7"
+rustyline = "14.0"
