@@ -91,15 +91,19 @@ impl Database {
         let player = sqlx::query_as::<_, PlayerRecord>("SELECT * FROM players WHERE id = ?")
             .bind(id)
             .fetch_optional(&self.pool)
-            .await.ok().flatten();
+            .await;
 
         match player {
-            Some(p) => {
+            Ok(Some(p)) => {
                 println!("DB: Found player: id={}, name='{}'", p.id, p.name);
                 Some(p)
             }
-            None => {
+            Ok(None) => {
                 println!("DB: No player found with ID: {id}");
+                None
+            }
+            Err(e) => {
+                println!("DB: Error querying player by ID {id}: {e:#?}");
                 None
             }
         }
