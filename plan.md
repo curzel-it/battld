@@ -137,6 +137,7 @@ Transitioning Battld from a single tic-tac-toe game to a hub supporting multiple
   - [ ] Server serializes game-specific state to JSON before creating Match
 
 - [ ] Create game routing/dispatcher logic
+  - [ ] Create `server/src/game_router.rs` module
   - [ ] Create `handle_game_move()` function that:
     - Takes Match, player_id, move_data JSON
     - Matches on `match.game_type` enum (GameType::TicTacToe, GameType::RockPaperScissors)
@@ -191,7 +192,7 @@ Transitioning Battld from a single tic-tac-toe game to a hub supporting multiple
   - [ ] Send `ClientMessage::JoinMatchmaking { game_type }` with selected game type
   - [ ] Rest of flow remains same (wait for opponent, match found, etc.)
 
-- [ ] Update server matchmaking logic (server/src/game_logic.rs)
+- [ ] Update server matchmaking logic (in websocket.rs or create dedicated matchmaking module)
   - [ ] Update `handle_join_matchmaking_logic()` to accept `game_type: GameType` parameter
   - [ ] Implement per-game-type matchmaking queues (e.g., separate waiting matches per game type)
   - [ ] Update `find_waiting_match()` in database to filter by game_type
@@ -304,7 +305,7 @@ Client determines UI state by examining game state:
       - If not finished: append new round `(None, None)` to list
     - Return new state
 
-- [ ] Add RPS to game router (server/src/game_logic.rs or new dispatcher)
+- [ ] Add RPS to game router (server/src/game_router.rs)
   - [ ] Update `handle_game_move()` to match on `GameType::RockPaperScissors`
   - [ ] Deserialize move_data to RPSMove
   - [ ] Call RPSEngine::update()
