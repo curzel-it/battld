@@ -16,7 +16,7 @@ impl Default for Config {
             player_id: None,
             private_key_path: Some("private_key.pem".to_string()),
             public_key_path: Some("public_key.pem".to_string()),
-            server_url: Some("http://localhost:3000".to_string()),
+            server_url: Some("https://battld.curzel.it".to_string()),
         }
     }
 }
