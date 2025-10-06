@@ -13,6 +13,7 @@ struct RPSGameState {
 }
 
 impl RPSGameState {
+    #[allow(dead_code)]
     fn current_round(&self) -> usize {
         self.rounds.len()
     }
@@ -44,6 +45,7 @@ impl RPSGameState {
         }
     }
 
+    #[allow(dead_code)]
     fn is_finished(&self) -> bool {
         let (p1_wins, p2_wins) = self.get_score();
         p1_wins >= 2 || p2_wins >= 2
@@ -290,11 +292,7 @@ async fn wait_for_game_update(ws_client: &WebSocketClient) -> Result<(Match, Opt
                 ServerMessage::GameStateUpdate { match_data } => {
                     return Ok((match_data, None));
                 }
-                ServerMessage::MatchEnded { reason } => {
-                    let status = match reason {
-                        MatchEndReason::Ended => None,
-                        MatchEndReason::Disconnection => Some("Match ended due to disconnection".to_string()),
-                    };
+                ServerMessage::MatchEnded { reason: _reason } => {
                     // Wait a bit for final GameStateUpdate
                     tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
                     continue;

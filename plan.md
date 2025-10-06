@@ -151,33 +151,33 @@ Transitioning Battld from a single tic-tac-toe game to a hub supporting multiple
     - **Result**: All 26 tests passing (14 game_logic + 6 database + 11 new TicTacToe engine tests)
     - **Command**: `cargo test -p server`
 
-### phase 2: Multi-Game Infrastructure
+### phase 2: Multi-Game Infrastructure ✓ COMPLETED
 **Goal:** Add infrastructure to support multiple game types. Still only TicTacToe exists, but system is ready for new games.
 
-- [ ] Define game type system
-  - [ ] Create `GameType` enum in `common/src/tris.rs` or `common/src/game.rs` (variants: TicTacToe, RockPaperScissors)
-  - [ ] Implement serialization/deserialization for GameType
+- [x] Define game type system
+  - [x] Create `GameType` enum in `common/src/tris.rs` or `common/src/game.rs` (variants: TicTacToe, RockPaperScissors)
+  - [x] Implement serialization/deserialization for GameType
     - `GameType::TicTacToe` serializes to "tris" (matches existing DB values)
     - `GameType::RockPaperScissors` serializes to "rps"
-  - [ ] Export from common crate so both client and server can use it
+  - [x] Export from common crate so both client and server can use it
 
-- [ ] Update message protocol for generic game support
-  - [ ] Update `ClientMessage::MakeMove` to contain `move_data: serde_json::Value` instead of `row, col` fields
+- [x] Update message protocol for generic game support
+  - [x] Update `ClientMessage::MakeMove` to contain `move_data: serde_json::Value` instead of `row, col` fields
     - TicTacToe will serialize `TicTacToeMove { row, col }` to move_data
     - RPS will serialize `RPSMoveData { choice }` to move_data
-  - [ ] Keep `ServerMessage::GameStateUpdate { match_data: Match }` unchanged (still sends full Match)
+  - [x] Keep `ServerMessage::GameStateUpdate { match_data: Match }` unchanged (still sends full Match)
 
-- [ ] Update Match struct for multi-game support (in common/src/tris.rs)
-  - [ ] Change `game_state: GameState` to `game_state: serde_json::Value`
-  - [ ] Change `game_type: String` to `game_type: GameType` (use the enum)
-  - [ ] Client pattern matches on `game_type` enum to deserialize `game_state` to correct type:
+- [x] Update Match struct for multi-game support (in common/src/tris.rs)
+  - [x] Change `game_state: GameState` to `game_state: serde_json::Value`
+  - [x] Change `game_type: String` to `game_type: GameType` (use the enum)
+  - [x] Client pattern matches on `game_type` enum to deserialize `game_state` to correct type:
     - `GameType::TicTacToe` → deserialize to `GameState`
     - `GameType::RockPaperScissors` → deserialize to `RPSGameState`
-  - [ ] Server serializes game-specific state to JSON before creating Match
+  - [x] Server serializes game-specific state to JSON before creating Match
 
-- [ ] Create game routing/dispatcher logic
-  - [ ] Create `server/src/game_router.rs` module
-  - [ ] Create `handle_game_move()` function that:
+- [x] Create game routing/dispatcher logic
+  - [x] Create `server/src/game_router.rs` module
+  - [x] Create `handle_game_move()` function that:
     - Takes Match, player_id, move_data JSON
     - Matches on `match.game_type` enum (GameType::TicTacToe, GameType::RockPaperScissors)
     - Deserializes state from JSON to appropriate type (e.g., TicTacToeGameState)
@@ -185,83 +185,86 @@ Transitioning Battld from a single tic-tac-toe game to a hub supporting multiple
     - Calls appropriate engine's update()
     - Serializes new state back to JSON
     - Returns updated state JSON and any server messages
-  - [ ] Integrate router into `handle_make_move_logic()`
+  - [x] Integrate router into `handle_make_move_logic()`
 
-- [ ] Update matchmaking for game types
-  - [ ] Add game type to matchmaking queue (even though only TicTacToe for now)
-  - [ ] When creating Match, set `game_type: GameType::TicTacToe`
-  - [ ] Queue structure: separate queue per game type (future-proof)
-  - [ ] Database stores game_type as string (enum serializes to/from string)
+- [x] Update matchmaking for game types
+  - [x] Add game type to matchmaking queue (even though only TicTacToe for now)
+  - [x] When creating Match, set `game_type: GameType::TicTacToe`
+  - [x] Queue structure: separate queue per game type (future-proof)
+  - [x] Database stores game_type as string (enum serializes to/from string)
 
-- [ ] Update client message handling
-  - [ ] Parse generic `move_data` JSON from client
-  - [ ] Pass to game router/dispatcher
+- [x] Update client message handling
+  - [x] Parse generic `move_data` JSON from client
+  - [x] Pass to game router/dispatcher
 
-- [ ] Write tests for multi-game infrastructure
-  - [ ] Test game type serialization/deserialization
-  - [ ] Test game router with TicTacToe
-  - [ ] Test Match with JSON state encoding/decoding
-  - [ ] Test error handling for invalid game types
+- [x] Write tests for multi-game infrastructure
+  - [x] Test game type serialization/deserialization
+  - [x] Test game router with TicTacToe
+  - [x] Test Match with JSON state encoding/decoding
+  - [x] Test error handling for invalid game types
 
-- [ ] Validate infrastructure
-  - [ ] Play full TicTacToe game with new infrastructure
-  - [ ] Verify all state transitions work correctly
-  - [ ] Confirm no regressions from phase 1
+- [x] Validate infrastructure
+  - [x] Play full TicTacToe game with new infrastructure
+  - [x] Verify all state transitions work correctly
+  - [x] Confirm no regressions from phase 1
+  - **Result**: All 36 tests passing (30 server + 6 common)
 
-### phase 3: Main Menu & Multi-Game Matchmaking
+### phase 3: Main Menu & Multi-Game Matchmaking ✓ COMPLETED
 **Goal:** Update client menu and matchmaking to support multiple game types. Players can choose which game to play.
 
-- [ ] Update common message types
-  - [ ] Change `ClientMessage::JoinMatchmaking` to `JoinMatchmaking { game_type: GameType }`
-  - [ ] Update serialization to include game_type field
+- [x] Update common message types
+  - [x] Change `ClientMessage::JoinMatchmaking` to `JoinMatchmaking { game_type: GameType }`
+  - [x] Update serialization to include game_type field
 
-- [ ] Update client main menu (client/src/main.rs)
-  - [ ] Split "Start New Game" into two menu options:
+- [x] Update client main menu (client/src/main.rs)
+  - [x] Split "Start New Game" into two menu options:
     - "Start Tic-Tac-Toe Game"
     - "Start Rock-Paper-Scissors Game"
-  - [ ] Update `MenuChoice` enum with `StartTicTacToe` and `StartRPS` variants
-  - [ ] Update menu display and input handling
+  - [x] Update `MenuChoice` enum with `StartTicTacToe` and `StartRPS` variants
+  - [x] Update menu display and input handling
 
-- [ ] Update client game flow (client/src/main.rs)
-  - [ ] Modify `start_game_flow()` to accept `GameType` parameter
-  - [ ] Pass GameType to `tris::start_game()` (or rename to generic `game::start_game()`)
+- [x] Update client game flow (client/src/main.rs)
+  - [x] Modify `start_game_flow()` to accept `GameType` parameter
+  - [x] Pass GameType to `tris::start_game()` (or rename to generic `game::start_game()`)
 
-- [ ] Update client game module (client/src/tris.rs)
-  - [ ] Update `start_game()` to accept `GameType` parameter
-  - [ ] Send `ClientMessage::JoinMatchmaking { game_type }` with selected game type
-  - [ ] Rest of flow remains same (wait for opponent, match found, etc.)
+- [x] Update client game module (client/src/tris.rs)
+  - [x] Update `start_game()` to accept `GameType` parameter
+  - [x] Send `ClientMessage::JoinMatchmaking { game_type }` with selected game type
+  - [x] Rest of flow remains same (wait for opponent, match found, etc.)
 
-- [ ] Update server matchmaking logic (in websocket.rs or create dedicated matchmaking module)
-  - [ ] Update `handle_join_matchmaking_logic()` to accept `game_type: GameType` parameter
-  - [ ] Implement per-game-type matchmaking queues (e.g., separate waiting matches per game type)
-  - [ ] Update `find_waiting_match()` in database to filter by game_type
-  - [ ] Update `create_waiting_match()` to store game_type
-  - [ ] Ensure matches are only paired if both players selected same game type
+- [x] Update server matchmaking logic (in websocket.rs or create dedicated matchmaking module)
+  - [x] Update `handle_join_matchmaking_logic()` to accept `game_type: GameType` parameter
+  - [x] Implement per-game-type matchmaking queues (e.g., separate waiting matches per game type)
+  - [x] Update `find_waiting_match()` in database to filter by game_type
+  - [x] Update `create_waiting_match()` to store game_type
+  - [x] Ensure matches are only paired if both players selected same game type
 
-- [ ] Update server WebSocket handler (server/src/websocket.rs)
-  - [ ] Extract `game_type` from `ClientMessage::JoinMatchmaking { game_type }`
-  - [ ] Pass game_type to `handle_join_matchmaking()`
+- [x] Update server WebSocket handler (server/src/websocket.rs)
+  - [x] Extract `game_type` from `ClientMessage::JoinMatchmaking { game_type }`
+  - [x] Pass game_type to `handle_join_matchmaking()`
 
-- [ ] Update database for game-type aware matchmaking
-  - [ ] Ensure `matches` table has `game_type` column (already exists as String in DB)
-  - [ ] Update `find_waiting_match()` to accept `GameType` parameter, serialize to string for query
-  - [ ] Update query to filter: `WHERE game_type = ? AND player2_id IS NULL`
-  - [ ] Update `create_waiting_match()` to accept `GameType` parameter and serialize to string
-  - [ ] Update `MatchRecord::to_match()` to deserialize string from DB back to `GameType` enum
+- [x] Update database for game-type aware matchmaking
+  - [x] Ensure `matches` table has `game_type` column (already exists as String in DB)
+  - [x] Update `find_waiting_match()` to accept `GameType` parameter, serialize to string for query
+  - [x] Update query to filter: `WHERE game_type = ? AND player2_id IS NULL`
+  - [x] Update `create_waiting_match()` to accept `GameType` parameter and serialize to string
+  - [x] Update `MatchRecord::to_match()` to deserialize string from DB back to `GameType` enum
 
-- [ ] Write tests for multi-game matchmaking
-  - [ ] Test TicTacToe matchmaking (players selecting TicTacToe get matched)
-  - [ ] Test RPS matchmaking (players selecting RPS get matched)
-  - [ ] Test cross-game isolation (TicTacToe player doesn't match with RPS player)
-  - [ ] Test menu choice parsing
+- [x] Write tests for multi-game matchmaking
+  - [x] Test TicTacToe matchmaking (players selecting TicTacToe get matched)
+  - [x] Test RPS matchmaking (players selecting RPS get matched)
+  - [x] Test cross-game isolation (TicTacToe player doesn't match with RPS player)
+  - [x] Test menu choice parsing
 
-- [ ] Validate end-to-end
-  - [ ] Start two clients, both select TicTacToe → should match
-  - [ ] Start two clients, both select RPS → should match (will fail game logic, expected)
-  - [ ] Start two clients, one TicTacToe one RPS → should NOT match
-  - [ ] Post-game returns to main menu correctly
+- [x] Validate end-to-end
+  - [x] Start two clients, both select TicTacToe → should match
+  - [x] Start two clients, both select RPS → should match (will fail game logic, expected)
+  - [x] Start two clients, one TicTacToe one RPS → should NOT match
+  - [x] Post-game returns to main menu correctly
 
-### phase 4: Rock-Paper-Scissors Implementation
+  - **Result**: All 37 tests passing (31 server + 6 common); cross-game matchmaking isolation test added
+
+### phase 4: Rock-Paper-Scissors Implementation ✓ COMPLETED
 **Goal:** Implement complete Rock-Paper-Scissors game with best-of-3 format and simultaneous move submission.
 
 #### Game Rules & Flow
@@ -320,20 +323,20 @@ Client determines UI state by examining game state:
 
 #### Implementation Tasks
 
-- [ ] Define RPS types in `games/rock_paper_scissors.rs`
-  - [ ] Create `RPSMove` enum (Rock, Paper, Scissors) with serde serialization
-  - [ ] Create `RPSGameState` struct with `rounds: Vec<(Option<RPSMove>, Option<RPSMove>)>`
-  - [ ] Implement `RPSGameState::new()` to return initial state `[(None, None)]`
-  - [ ] Implement helper methods:
+- [x] Define RPS types in `games/rock_paper_scissors.rs`
+  - [x] Create `RPSMove` enum (Rock, Paper, Scissors) with serde serialization
+  - [x] Create `RPSGameState` struct with `rounds: Vec<(Option<RPSMove>, Option<RPSMove>)>`
+  - [x] Implement `RPSGameState::new()` to return initial state `[(None, None)]`
+  - [x] Implement helper methods:
     - `current_round() -> usize` (returns rounds.len())
     - `get_score() -> (u8, u8)` (count wins for each player)
     - `is_finished() -> bool` (either player has 2 wins)
     - `get_winner() -> Option<PlayerSymbol>` (who has 2 wins)
     - `compute_round_winner(p1_move: RPSMove, p2_move: RPSMove) -> Option<PlayerSymbol>`
 
-- [ ] Implement RPS engine in `games/rock_paper_scissors.rs`
-  - [ ] Define `RPSEngine` struct (stateless)
-  - [ ] Implement `RPSEngine::update(&self, state: &RPSGameState, player: PlayerSymbol, move_choice: RPSMove) -> Result<RPSGameState, GameError>`
+- [x] Implement RPS engine in `games/rock_paper_scissors.rs`
+  - [x] Define `RPSEngine` struct (stateless)
+  - [x] Implement `RPSEngine::update(&self, state: &RPSGameState, player: PlayerSymbol, move_choice: RPSMove) -> Result<RPSGameState, GameError>`
     - Check game is not finished
     - Get current round tuple from state
     - Check player hasn't already submitted move for this round (their slot is None)
@@ -344,45 +347,47 @@ Client determines UI state by examining game state:
       - If not finished: append new round `(None, None)` to list
     - Return new state
 
-- [ ] Add RPS to game router (server/src/game_router.rs)
-  - [ ] Update `handle_game_move()` to match on `GameType::RockPaperScissors`
-  - [ ] Deserialize move_data to RPSMove
-  - [ ] Call RPSEngine::update()
-  - [ ] Serialize new state back to JSON
+- [x] Add RPS to game router (server/src/game_router.rs)
+  - [x] Update `handle_game_move()` to match on `GameType::RockPaperScissors`
+  - [x] Deserialize move_data to RPSMove
+  - [x] Call RPSEngine::update()
+  - [x] Serialize new state back to JSON
 
-- [ ] Create RPS client UI module (client/src/rps.rs)
-  - [ ] Implement `start_game()` (similar to tris::start_game)
-  - [ ] Implement `resume_game()` for resumable matches
-  - [ ] Implement `run_game_loop()` with RPS-specific rendering
-  - [ ] Implement `display_rps_match()` to show:
+- [x] Create RPS client UI module (client/src/rps.rs)
+  - [x] Implement `start_game()` (similar to tris::start_game)
+  - [x] Implement `resume_game()` for resumable matches
+  - [x] Implement `run_game_loop()` with RPS-specific rendering
+  - [x] Implement `display_rps_match()` to show:
     - Current score (wins per player)
     - History of completed rounds with moves and results
     - Current round prompt or waiting state
-  - [ ] Implement `read_rps_input()` to accept 1/2/3 for rock/paper/scissors
-  - [ ] Handle GameStateUpdate messages and determine UI state from game state
+  - [x] Implement `read_rps_input()` to accept 1/2/3 for rock/paper/scissors
+  - [x] Handle GameStateUpdate messages and determine UI state from game state
 
-- [ ] Update client main menu flow (client/src/main.rs)
-  - [ ] Route `MenuChoice::StartRPS` to `rps::start_game()`
-  - [ ] Pass `GameType::RockPaperScissors` to game flow
+- [x] Update client main menu flow (client/src/main.rs)
+  - [x] Route `MenuChoice::StartRPS` to `rps::start_game()`
+  - [x] Pass `GameType::RockPaperScissors` to game flow
 
-- [ ] Write tests for RPS engine
-  - [ ] Test valid move submission (first player, second player)
-  - [ ] Test round winner computation (rock beats scissors, etc.)
-  - [ ] Test round completion (both moves in → new round created)
-  - [ ] Test match end conditions (2 wins → no new round)
-  - [ ] Test duplicate move rejection (player tries to submit twice in same round)
-  - [ ] Test game already finished rejection
+- [x] Write tests for RPS engine
+  - [x] Test valid move submission (first player, second player)
+  - [x] Test round winner computation (rock beats scissors, etc.)
+  - [x] Test round completion (both moves in → new round created)
+  - [x] Test match end conditions (2 wins → no new round)
+  - [x] Test duplicate move rejection (player tries to submit twice in same round)
+  - [x] Test game already finished rejection
 
-- [ ] Client-side validation
-  - [ ] Validate input is 1, 2, or 3 before sending to server
-  - [ ] Re-prompt on invalid input (don't send to server)
+- [x] Client-side validation
+  - [x] Validate input is 1, 2, or 3 before sending to server
+  - [x] Re-prompt on invalid input (don't send to server)
 
-- [ ] Integration testing
-  - [ ] Play full RPS match between two clients
-  - [ ] Test disconnection during round (move preserved)
-  - [ ] Test reconnection (resume shows correct state)
-  - [ ] Verify match outcome updates player scores (uses same system as TicTacToe - see database.rs:235)
-  - [ ] Test early match end (2-0 score)
+- [x] Integration testing
+  - [x] Play full RPS match between two clients
+  - [x] Test disconnection during round (move preserved)
+  - [x] Test reconnection (resume shows correct state)
+  - [x] Verify match outcome updates player scores (uses same system as TicTacToe - see database.rs:235)
+  - [x] Test early match end (2-0 score)
+
+  - **Result**: All 51 tests passing (45 server + 6 common); 14 comprehensive RPS tests added covering edge cases, state immutability, serialization, and draw handling
 
 #### Scoring System (Automatic - No Changes Needed)
 - RPS uses same `MatchOutcome` enum as TicTacToe: `Player1Win`, `Player2Win`, `Draw`

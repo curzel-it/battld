@@ -45,6 +45,7 @@ impl RPSGameState {
     }
 
     /// Get current round number (1-indexed for display)
+    #[allow(dead_code)]
     pub fn current_round(&self) -> usize {
         self.rounds.len()
     }
@@ -93,6 +94,7 @@ impl RPSGameState {
     }
 
     /// Compute the winner of a specific round
+    #[allow(dead_code)]
     pub fn compute_round_winner(p1_move: RPSMove, p2_move: RPSMove) -> Option<PlayerSymbol> {
         match p1_move.beats(&p2_move) {
             Some(winner) => {
