@@ -206,7 +206,8 @@ async fn handle_socket(socket: WebSocket, db: Arc<Database>, registry: SharedReg
                         }
                         ClientMessage::JoinMatchmaking => {
                             if let Some(pid) = player_id {
-                                handle_join_matchmaking(pid, &db, &registry).await;
+                                // For now, default to TicTacToe (Phase 3 will add menu selection)
+                                handle_join_matchmaking(pid, battld_common::GameType::TicTacToe, &db, &registry).await;
                             } else {
                                 let _ = tx.send(ServerMessage::Error {
                                     message: "Not authenticated".to_string(),
@@ -222,9 +223,9 @@ async fn handle_socket(socket: WebSocket, db: Arc<Database>, registry: SharedReg
                                 });
                             }
                         }
-                        ClientMessage::MakeMove { row, col } => {
+                        ClientMessage::MakeMove { move_data } => {
                             if let Some(pid) = player_id {
-                                handle_make_move(pid, row, col, &db, &registry).await;
+                                handle_make_move(pid, move_data, &db, &registry).await;
                             } else {
                                 let _ = tx.send(ServerMessage::Error {
                                     message: "Not authenticated".to_string(),
@@ -288,20 +289,19 @@ async fn handle_resume_match(player_id: i64, db: &Arc<Database>, registry: &Shar
 }
 
 /// Handle matchmaking request
-async fn handle_join_matchmaking(player_id: i64, db: &Arc<Database>, registry: &SharedRegistry) {
-    let messages = game_logic::handle_join_matchmaking_logic(player_id, db).await;
+async fn handle_join_matchmaking(player_id: i64, game_type: battld_common::GameType, db: &Arc<Database>, registry: &SharedRegistry) {
+    let messages = game_logic::handle_join_matchmaking_logic(player_id, game_type, db).await;
     registry.send_messages(messages).await;
 }
 
 /// Handle a move request
 async fn handle_make_move(
     player_id: i64,
-    row: usize,
-    col: usize,
+    move_data: serde_json::Value,
     db: &Arc<Database>,
     registry: &SharedRegistry,
 ) {
-    let messages = game_logic::handle_make_move_logic(player_id, row, col, db).await;
+    let messages = game_logic::handle_make_move_logic(player_id, move_data, db).await;
     registry.send_messages(messages).await;
 }
 

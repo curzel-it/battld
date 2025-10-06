@@ -34,7 +34,7 @@ pub enum ClientMessage {
     #[serde(rename = "resume_match")]
     ResumeMatch,
     #[serde(rename = "make_move")]
-    MakeMove { row: usize, col: usize },
+    MakeMove { move_data: serde_json::Value },
     #[serde(rename = "ping")]
     Ping,
 }

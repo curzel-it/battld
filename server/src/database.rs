@@ -26,6 +26,27 @@ pub struct MatchRecord {
     pub game_state: String,
 }
 
+impl MatchRecord {
+    pub fn to_match(&self) -> Option<battld_common::Match> {
+        use battld_common::{GameType, Match, MatchOutcome};
+
+        let game_type = GameType::from_string(&self.game_type)?;
+        let game_state: serde_json::Value = serde_json::from_str(&self.game_state).ok()?;
+        let outcome = self.outcome.as_ref().and_then(|s| MatchOutcome::from_string(s));
+
+        Some(Match {
+            id: self.id,
+            player1_id: self.player1_id,
+            player2_id: self.player2_id,
+            in_progress: self.in_progress != 0,
+            outcome,
+            game_type,
+            current_player: self.current_player as i32,
+            game_state,
+        })
+    }
+}
+
 impl Database {
     pub fn pool(&self) -> &SqlitePool {
         &self.pool
@@ -116,13 +137,15 @@ impl Database {
         player2_id: i64,
         current_player: i64,
         game_state: &str,
+        game_type: &str,
     ) -> Result<i64, sqlx::Error> {
         let result = sqlx::query(
             "INSERT INTO matches (player1_id, player2_id, in_progress, game_type, current_player, game_state)
-             VALUES (?, ?, 1, 'tris', ?, ?)"
+             VALUES (?, ?, 1, ?, ?, ?)"
         )
         .bind(player1_id)
         .bind(player2_id)
+        .bind(game_type)
         .bind(current_player)
         .bind(game_state)
         .execute(&self.pool)
@@ -131,23 +154,25 @@ impl Database {
         Ok(result.last_insert_rowid())
     }
 
-    pub async fn create_waiting_match(&self, player1_id: i64) -> Result<i64, sqlx::Error> {
+    pub async fn create_waiting_match(&self, player1_id: i64, game_type: &str) -> Result<i64, sqlx::Error> {
         let result = sqlx::query(
             "INSERT INTO matches (player1_id, player2_id, in_progress, game_type)
-             VALUES (?, NULL, 1, 'tris')"
+             VALUES (?, NULL, 1, ?)"
         )
         .bind(player1_id)
+        .bind(game_type)
         .execute(&self.pool)
         .await?;
 
         Ok(result.last_insert_rowid())
     }
 
-    pub async fn find_waiting_match(&self, player_id: i64) -> Option<MatchRecord> {
+    pub async fn find_waiting_match(&self, player_id: i64, game_type: &str) -> Option<MatchRecord> {
         sqlx::query_as::<_, MatchRecord>(
-            "SELECT * FROM matches WHERE player2_id IS NULL AND player1_id != ? AND in_progress = 1 LIMIT 1"
+            "SELECT * FROM matches WHERE player2_id IS NULL AND player1_id != ? AND in_progress = 1 AND game_type = ? LIMIT 1"
         )
         .bind(player_id)
+        .bind(game_type)
         .fetch_optional(&self.pool)
         .await
         .ok()
@@ -300,7 +325,7 @@ mod tests {
         let p2 = create_test_player(&db, "player2").await;
 
         // Create a match with p1 winning
-        let match_id = db.create_match(p1, p2, 1, "{}").await.unwrap();
+        let match_id = db.create_match(p1, p2, 1, "{}", "tris").await.unwrap();
         db.update_match(match_id, 1, "{}", false, Some("p1_win")).await.unwrap();
 
         let match_record = db.get_match_by_id(match_id).await.unwrap();
@@ -321,7 +346,7 @@ mod tests {
         let p2 = create_test_player(&db, "player2").await;
 
         // Create a match with p2 winning
-        let match_id = db.create_match(p1, p2, 1, "{}").await.unwrap();
+        let match_id = db.create_match(p1, p2, 1, "{}", "tris").await.unwrap();
         db.update_match(match_id, 2, "{}", false, Some("p2_win")).await.unwrap();
 
         let match_record = db.get_match_by_id(match_id).await.unwrap();
@@ -342,7 +367,7 @@ mod tests {
         let p2 = create_test_player(&db, "player2").await;
 
         // Create a match with draw
-        let match_id = db.create_match(p1, p2, 1, "{}").await.unwrap();
+        let match_id = db.create_match(p1, p2, 1, "{}", "tris").await.unwrap();
         db.update_match(match_id, 1, "{}", false, Some("draw")).await.unwrap();
 
         let match_record = db.get_match_by_id(match_id).await.unwrap();
@@ -363,19 +388,19 @@ mod tests {
         let p2 = create_test_player(&db, "player2").await;
 
         // Match 1: p1 wins
-        let match1 = db.create_match(p1, p2, 1, "{}").await.unwrap();
+        let match1 = db.create_match(p1, p2, 1, "{}", "tris").await.unwrap();
         db.update_match(match1, 1, "{}", false, Some("p1_win")).await.unwrap();
         let match1_record = db.get_match_by_id(match1).await.unwrap();
         db.update_player_scores_from_match(&match1_record).await.unwrap();
 
         // Match 2: p2 wins
-        let match2 = db.create_match(p1, p2, 1, "{}").await.unwrap();
+        let match2 = db.create_match(p1, p2, 1, "{}", "tris").await.unwrap();
         db.update_match(match2, 2, "{}", false, Some("p2_win")).await.unwrap();
         let match2_record = db.get_match_by_id(match2).await.unwrap();
         db.update_player_scores_from_match(&match2_record).await.unwrap();
 
         // Match 3: draw
-        let match3 = db.create_match(p1, p2, 1, "{}").await.unwrap();
+        let match3 = db.create_match(p1, p2, 1, "{}", "tris").await.unwrap();
         db.update_match(match3, 1, "{}", false, Some("draw")).await.unwrap();
         let match3_record = db.get_match_by_id(match3).await.unwrap();
         db.update_player_scores_from_match(&match3_record).await.unwrap();
@@ -395,7 +420,7 @@ mod tests {
         let p2 = create_test_player(&db, "player2").await;
 
         // Create a match without outcome (still in progress)
-        let match_id = db.create_match(p1, p2, 1, "{}").await.unwrap();
+        let match_id = db.create_match(p1, p2, 1, "{}", "tris").await.unwrap();
 
         let match_record = db.get_match_by_id(match_id).await.unwrap();
         db.update_player_scores_from_match(&match_record).await.unwrap();
@@ -415,7 +440,7 @@ mod tests {
         let p2 = create_test_player(&db, "player2").await;
 
         // Create a match with an unknown/invalid outcome
-        let match_id = db.create_match(p1, p2, 1, "{}").await.unwrap();
+        let match_id = db.create_match(p1, p2, 1, "{}", "tris").await.unwrap();
         db.update_match(match_id, 1, "{}", false, Some("unknown")).await.unwrap();
 
         let match_record = db.get_match_by_id(match_id).await.unwrap();

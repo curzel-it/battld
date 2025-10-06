@@ -10,6 +10,12 @@ use crate::state::SessionState;
 use crate::websocket::WebSocketClient;
 use std::fs::OpenOptions;
 
+/// Helper to extract GameState from Match for TicTacToe
+fn get_tictactoe_state(game_match: &Match) -> Result<GameState, Box<dyn std::error::Error>> {
+    serde_json::from_value(game_match.game_state.clone())
+        .map_err(|e| format!("Failed to deserialize game state: {}", e).into())
+}
+
 pub async fn start_game(session: &mut SessionState) -> Result<(), Box<dyn std::error::Error>> {
     // Ensure WebSocket connection
     if session.ws_client.is_none() {
@@ -92,8 +98,9 @@ async fn run_game_loop(session: &SessionState, mut game_match: Match) -> Result<
             // A draw from disconnect will have outcome=Draw but the board won't be full
             let is_disconnect_draw = if let Some(MatchOutcome::Draw) = game_match.outcome {
                 // Check if board is full or has a winner
-                let board_full = game_match.game_state.is_full();
-                let has_winner = game_match.game_state.check_winner().is_some();
+                let state = get_tictactoe_state(&game_match)?;
+                let board_full = state.is_full();
+                let has_winner = state.check_winner().is_some();
 
                 if let Ok(mut file) = OpenOptions::new().create(true).append(true).open("client.log") {
                     let _ = writeln!(file, "[GAME LOOP] Draw detected: board_full={board_full}, has_winner={has_winner}");
@@ -139,8 +146,9 @@ async fn run_game_loop(session: &SessionState, mut game_match: Match) -> Result<
                 let _ = writeln!(file, "[GAME LOOP] User entered move: ({row}, {col})");
             }
 
-            // Send move
-            ws_client.send(ClientMessage::MakeMove { row, col })?;
+            // Send move with generic move_data
+            let move_data = serde_json::json!({"row": row, "col": col});
+            ws_client.send(ClientMessage::MakeMove { move_data })?;
 
             // Wait for response
             let (new_match, new_status) = wait_for_game_update(ws_client).await?;
@@ -396,7 +404,8 @@ fn display_match(game_match: &Match, current_player_id: i64) {
     }
 
     println!();
-    display_board(&game_match.game_state, my_number);
+    let state = get_tictactoe_state(&game_match).unwrap_or_else(|_| GameState::new());
+    display_board(&state, my_number);
 }
 
 fn display_board(state: &GameState, my_number: i32) {

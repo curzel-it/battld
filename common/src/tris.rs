@@ -1,6 +1,35 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
+/// Represents the type of game being played
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum GameType {
+    #[serde(rename = "tris")]
+    TicTacToe,
+    #[serde(rename = "rps")]
+    RockPaperScissors,
+}
+
+impl fmt::Display for GameType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            GameType::TicTacToe => write!(f, "tris"),
+            GameType::RockPaperScissors => write!(f, "rps"),
+        }
+    }
+}
+
+impl GameType {
+    pub fn from_string(s: &str) -> Option<Self> {
+        match s {
+            "tris" => Some(GameType::TicTacToe),
+            "rps" => Some(GameType::RockPaperScissors),
+            _ => None,
+        }
+    }
+}
+
 /// Represents the state of a single cell in the tris board
 /// 0 = empty, 1 = player1, 2 = player2
 pub type CellState = i32;
@@ -99,9 +128,9 @@ pub struct Match {
     pub player2_id: i64,
     pub in_progress: bool,
     pub outcome: Option<MatchOutcome>,
-    pub game_type: String,
+    pub game_type: GameType,
     pub current_player: i32, // 1 or 2
-    pub game_state: GameState,
+    pub game_state: serde_json::Value,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
