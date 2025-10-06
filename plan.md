@@ -45,7 +45,7 @@ Transitioning Battld from a single tic-tac-toe game to a hub supporting multiple
 
 ## Technical Changes Needed
 
-### phase 0: Pre-Migration Baseline & Schema Preparation
+### phase 1: Pre-Migration Baseline & Schema Preparation
 **Goal:** Establish baseline that everything works, verify/update database schema for multi-game support.
 
 - [ ] Verify current system works end-to-end
