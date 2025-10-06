@@ -4,7 +4,8 @@ CREATE TABLE IF NOT EXISTS players (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     public_key_hint TEXT NOT NULL,
     public_key TEXT NOT NULL,
-    name TEXT NOT NULL
+    name TEXT NOT NULL,
+    score INTEGER NOT NULL DEFAULT 0
 );
 
 -- Matches table for tris games

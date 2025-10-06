@@ -1,11 +1,29 @@
 use battld_common::{GameState, MatchOutcome, MatchEndReason, ServerMessage};
 use crate::database::Database;
+use crate::games::tictactoe::{TicTacToeEngine, TicTacToeGameState, TicTacToeMove};
 
 /// Represents a message to be sent to a specific player
 #[derive(Debug, Clone)]
 pub struct OutgoingMessage {
     pub player_id: i64,
     pub message: ServerMessage,
+}
+
+/// Convert GameState to TicTacToeGameState
+fn game_state_to_tictactoe(game_state: &GameState, current_player: i32) -> TicTacToeGameState {
+    TicTacToeGameState {
+        board: game_state.cells,
+        current_player,
+        winner: game_state.check_winner(),
+        is_finished: game_state.check_winner().is_some() || game_state.is_full(),
+    }
+}
+
+/// Convert TicTacToeGameState to GameState
+fn tictactoe_to_game_state(tictactoe_state: &TicTacToeGameState) -> GameState {
+    GameState {
+        cells: tictactoe_state.board,
+    }
 }
 
 /// Handle resume match request - returns messages to send
@@ -214,68 +232,56 @@ pub async fn handle_make_move_logic(
         }];
     };
 
-    // Verify it's this player's turn
-    if game_match.current_player != player_number {
-        return vec![OutgoingMessage {
-            player_id,
-            message: ServerMessage::Error {
-                message: "Not your turn".to_string(),
-            },
-        }];
-    }
+    // Convert current GameState to TicTacToeGameState
+    let current_state = game_state_to_tictactoe(&game_match.game_state, game_match.current_player);
 
-    // Convert row/col to index and make the move
-    let index = match GameState::coords_to_index(row, col) {
-        Some(i) => i,
-        None => {
+    // Create the move
+    let game_move = TicTacToeMove { row, col };
+
+    // Use the TicTacToe engine to compute the new state
+    let engine = TicTacToeEngine::new();
+    let new_state = match engine.update(&current_state, player_number, &game_move) {
+        Ok(state) => state,
+        Err(e) => {
             return vec![OutgoingMessage {
                 player_id,
                 message: ServerMessage::Error {
-                    message: "Invalid coordinates".to_string(),
+                    message: e.to_string(),
                 },
             }];
         }
     };
 
-    if let Err(e) = game_match.game_state.place_move(index, player_number) {
-        return vec![OutgoingMessage {
-            player_id,
-            message: ServerMessage::Error {
-                message: e,
-            },
-        }];
-    }
+    // Convert new state back to GameState for database storage
+    let new_game_state = tictactoe_to_game_state(&new_state);
 
-    // Check for winner
-    let outcome = if let Some(winner) = game_match.game_state.check_winner() {
+    // Determine outcome
+    let outcome = if let Some(winner) = new_state.winner {
         Some(if winner == 1 {
             MatchOutcome::Player1Win
         } else {
             MatchOutcome::Player2Win
         })
-    } else if game_match.game_state.is_full() {
+    } else if new_state.is_finished {
         Some(MatchOutcome::Draw)
     } else {
         None
     };
 
-    // Switch to next player if game continues
-    let next_player = if outcome.is_some() {
-        game_match.current_player
-    } else if game_match.current_player == 1 { 2 } else { 1 };
-
-    let in_progress = outcome.is_none();
+    let in_progress = !new_state.is_finished;
     let outcome_str = outcome.as_ref().map(|o| o.to_string());
 
     // Update match in database
     if (db.update_match(
         game_match.id,
-        next_player as i64,
-        &game_match.game_state.to_json(),
+        new_state.current_player as i64,
+        &new_game_state.to_json(),
         in_progress,
         outcome_str.as_deref(),
     ).await).is_ok() {
-        game_match.current_player = next_player;
+        // Update match struct with new values
+        game_match.game_state = new_game_state;
+        game_match.current_player = new_state.current_player;
         game_match.in_progress = in_progress;
         game_match.outcome = outcome;
 

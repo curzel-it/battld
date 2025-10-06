@@ -12,6 +12,7 @@ use tower_http::services::ServeDir;
 mod auth;
 mod database;
 mod game_logic;
+mod games;
 mod log_requests;
 mod players;
 mod rate_limit;
