@@ -16,7 +16,7 @@ fn get_tictactoe_state(game_match: &Match) -> Result<GameState, Box<dyn std::err
         .map_err(|e| format!("Failed to deserialize game state: {}", e).into())
 }
 
-pub async fn start_game(session: &mut SessionState) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn start_game(session: &mut SessionState, game_type: GameType) -> Result<(), Box<dyn std::error::Error>> {
     // Ensure WebSocket connection
     if session.ws_client.is_none() {
         session.connect_websocket().await?;
@@ -24,8 +24,8 @@ pub async fn start_game(session: &mut SessionState) -> Result<(), Box<dyn std::e
 
     let ws_client = session.ws_client.as_ref().unwrap();
 
-    // Join matchmaking
-    ws_client.send(ClientMessage::JoinMatchmaking)?;
+    // Join matchmaking with specified game type
+    ws_client.send(ClientMessage::JoinMatchmaking { game_type })?;
 
     // Wait for match
     let game_match = 'outer: loop {

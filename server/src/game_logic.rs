@@ -659,4 +659,45 @@ mod tests {
             }
         }
     }
+
+    #[tokio::test]
+    async fn test_cross_game_matchmaking_isolation() {
+        let db = create_test_db().await;
+
+        // Create two players
+        let p1 = create_test_player(&db, "player1").await;
+        let p2 = create_test_player(&db, "player2").await;
+
+        // Player 1 joins TicTacToe matchmaking
+        let messages1 = handle_join_matchmaking_logic(p1, GameType::TicTacToe, &db).await;
+
+        // Should be waiting for opponent
+        assert_eq!(messages1.len(), 1);
+        match &messages1[0].message {
+            ServerMessage::WaitingForOpponent => {}
+            _ => panic!("Expected WaitingForOpponent message"),
+        }
+
+        // Player 2 joins RPS matchmaking (different game type)
+        let messages2 = handle_join_matchmaking_logic(p2, GameType::RockPaperScissors, &db).await;
+
+        // Should also be waiting (not matched with player 1)
+        assert_eq!(messages2.len(), 1);
+        match &messages2[0].message {
+            ServerMessage::WaitingForOpponent => {}
+            _ => panic!("Expected WaitingForOpponent message"),
+        }
+
+        // Now if a third player joins TicTacToe, they should match with player 1
+        let p3 = create_test_player(&db, "player3").await;
+        let messages3 = handle_join_matchmaking_logic(p3, GameType::TicTacToe, &db).await;
+
+        // Should send MatchFound to p1 and p3
+        assert_eq!(messages3.len(), 2);
+
+        let player_ids: Vec<i64> = messages3.iter().map(|m| m.player_id).collect();
+        assert!(player_ids.contains(&p1));
+        assert!(player_ids.contains(&p3));
+        assert!(!player_ids.contains(&p2)); // p2 not in this match
+    }
 }

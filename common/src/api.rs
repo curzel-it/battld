@@ -30,7 +30,7 @@ pub enum ClientMessage {
     #[serde(rename = "authenticate")]
     Authenticate { token: String },
     #[serde(rename = "join_matchmaking")]
-    JoinMatchmaking,
+    JoinMatchmaking { game_type: crate::GameType },
     #[serde(rename = "resume_match")]
     ResumeMatch,
     #[serde(rename = "make_move")]

@@ -63,9 +63,17 @@ async fn start_app(config_path: &str) -> Result<(), Box<dyn std::error::Error>> 
     // Enter main menu loop
     loop {
         match read_menu_choice(&mut session).await? {
-            MenuChoice::StartGame => {
-                // Start game flow
-                if let Err(e) = start_game_flow(&mut session).await {
+            MenuChoice::StartTicTacToe => {
+                // Start TicTacToe game flow
+                if let Err(e) = start_game_flow(&mut session, battld_common::GameType::TicTacToe).await {
+                    println!("{}", format!("Game error: {e}").red());
+                    println!("\nPress any key to return to menu...");
+                    wait_for_keypress()?;
+                }
+            }
+            MenuChoice::StartRPS => {
+                // Start Rock-Paper-Scissors game flow
+                if let Err(e) = start_game_flow(&mut session, battld_common::GameType::RockPaperScissors).await {
                     println!("{}", format!("Game error: {e}").red());
                     println!("\nPress any key to return to menu...");
                     wait_for_keypress()?;
@@ -96,7 +104,8 @@ async fn start_app(config_path: &str) -> Result<(), Box<dyn std::error::Error>> 
 }
 
 enum MenuChoice {
-    StartGame,
+    StartTicTacToe,
+    StartRPS,
     Stats,
     Leaderboard,
     Exit,
@@ -127,10 +136,11 @@ fn display_menu(title: &str, items: &[(String, String)]) {
 
 async fn read_menu_choice(_session: &mut SessionState) -> io::Result<MenuChoice> {
     let menu_items = vec![
-        ("1".to_string(), "Start New Game".to_string()),
-        ("2".to_string(), "Your Stats".to_string()),
-        ("3".to_string(), "Leaderboard".to_string()),
-        ("4".to_string(), "Exit".to_string()),
+        ("1".to_string(), "Start Tic-Tac-Toe Game".to_string()),
+        ("2".to_string(), "Start Rock-Paper-Scissors Game".to_string()),
+        ("3".to_string(), "Your Stats".to_string()),
+        ("4".to_string(), "Leaderboard".to_string()),
+        ("5".to_string(), "Exit".to_string()),
     ];
 
     let title = format!("v{VERSION}");
@@ -144,12 +154,13 @@ async fn read_menu_choice(_session: &mut SessionState) -> io::Result<MenuChoice>
             Ok(line) => {
                 let choice = line.trim();
                 match choice {
-                    "1" => return Ok(MenuChoice::StartGame),
-                    "2" => return Ok(MenuChoice::Stats),
-                    "3" => return Ok(MenuChoice::Leaderboard),
-                    "4" => return Ok(MenuChoice::Exit),
+                    "1" => return Ok(MenuChoice::StartTicTacToe),
+                    "2" => return Ok(MenuChoice::StartRPS),
+                    "3" => return Ok(MenuChoice::Stats),
+                    "4" => return Ok(MenuChoice::Leaderboard),
+                    "5" => return Ok(MenuChoice::Exit),
                     _ => {
-                        println!("{}", "Invalid choice. Please enter 1-4.".red());
+                        println!("{}", "Invalid choice. Please enter 1-5.".red());
                         continue;
                     }
                 }
@@ -239,13 +250,19 @@ async fn wait_for_game_state(ws_client: &crate::websocket::WebSocketClient) -> R
     }
 }
 
-async fn start_game_flow(session: &mut SessionState) -> Result<(), Box<dyn std::error::Error>> {
+async fn start_game_flow(session: &mut SessionState, game_type: battld_common::GameType) -> Result<(), Box<dyn std::error::Error>> {
     clear_screen()?;
-    println!("\n{}", "Starting matchmaking...".cyan());
+
+    let game_name = match game_type {
+        battld_common::GameType::TicTacToe => "Tic-Tac-Toe",
+        battld_common::GameType::RockPaperScissors => "Rock-Paper-Scissors",
+    };
+
+    println!("\n{}", format!("Starting {} matchmaking...", game_name).cyan());
     println!("{}", "Waiting for opponent...".dimmed());
 
     // Connect to WebSocket and join matchmaking
-    tris::start_game(session).await?;
+    tris::start_game(session, game_type).await?;
 
     Ok(())
 }

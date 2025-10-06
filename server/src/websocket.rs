@@ -204,10 +204,9 @@ async fn handle_socket(socket: WebSocket, db: Arc<Database>, registry: SharedReg
                         ClientMessage::Ping => {
                             let _ = tx.send(ServerMessage::Pong);
                         }
-                        ClientMessage::JoinMatchmaking => {
+                        ClientMessage::JoinMatchmaking { game_type } => {
                             if let Some(pid) = player_id {
-                                // For now, default to TicTacToe (Phase 3 will add menu selection)
-                                handle_join_matchmaking(pid, battld_common::GameType::TicTacToe, &db, &registry).await;
+                                handle_join_matchmaking(pid, game_type, &db, &registry).await;
                             } else {
                                 let _ = tx.send(ServerMessage::Error {
                                     message: "Not authenticated".to_string(),
