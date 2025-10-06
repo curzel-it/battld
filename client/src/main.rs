@@ -259,7 +259,7 @@ async fn start_game_flow(session: &mut SessionState, game_type: battld_common::G
         battld_common::GameType::RockPaperScissors => "Rock-Paper-Scissors",
     };
 
-    println!("\n{}", format!("Starting {} matchmaking...", game_name).cyan());
+    println!("\n{}", format!("Starting {game_name} matchmaking...").cyan());
     println!("{}", "Waiting for opponent...".dimmed());
 
     // Route to appropriate game module

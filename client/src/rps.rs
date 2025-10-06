@@ -53,7 +53,7 @@ impl RPSGameState {
 /// Helper to extract RPS game state from Match
 fn get_rps_state(game_match: &Match) -> Result<RPSGameState, Box<dyn std::error::Error>> {
     serde_json::from_value(game_match.game_state.clone())
-        .map_err(|e| format!("Failed to deserialize game state: {}", e).into())
+        .map_err(|e| format!("Failed to deserialize game state: {e}").into())
 }
 
 pub async fn start_game(session: &mut SessionState, game_type: GameType) -> Result<(), Box<dyn std::error::Error>> {
@@ -208,7 +208,7 @@ fn display_rps_match(game_match: &Match, my_number: i32) -> Result<(), Box<dyn s
     let my_score = if my_number == 1 { p1_wins } else { p2_wins };
     let opp_score = if my_number == 1 { p2_wins } else { p1_wins };
 
-    println!("{}", format!("Score: You {} - {} Opponent (First to 2 wins)", my_score, opp_score).bold());
+    println!("{}", format!("Score: You {my_score} - {opp_score} Opponent (First to 2 wins)").bold());
     println!();
 
     // Display round history

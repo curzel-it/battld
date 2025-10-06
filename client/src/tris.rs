@@ -13,7 +13,7 @@ use std::fs::OpenOptions;
 /// Helper to extract GameState from Match for TicTacToe
 fn get_tic_tac_toe_state(game_match: &Match) -> Result<GameState, Box<dyn std::error::Error>> {
     serde_json::from_value(game_match.game_state.clone())
-        .map_err(|e| format!("Failed to deserialize game state: {}", e).into())
+        .map_err(|e| format!("Failed to deserialize game state: {e}").into())
 }
 
 pub async fn start_game(session: &mut SessionState, game_type: GameType) -> Result<(), Box<dyn std::error::Error>> {
@@ -404,7 +404,7 @@ fn display_match(game_match: &Match, current_player_id: i64) {
     }
 
     println!();
-    let state = get_tic_tac_toe_state(&game_match).unwrap_or_else(|_| GameState::new());
+    let state = get_tic_tac_toe_state(game_match).unwrap_or_else(|_| GameState::new());
     display_board(&state, my_number);
 }
 

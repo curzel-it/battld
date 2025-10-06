@@ -28,11 +28,11 @@ fn handle_tic_tac_toe_move(
 ) -> Result<GameMoveResult, GameError> {
     // Deserialize the current game state from JSON
     let current_state: TicTacToeGameState = serde_json::from_value(game_match.game_state.clone())
-        .map_err(|e| GameError::IllegalMove(format!("Invalid game state: {}", e)))?;
+        .map_err(|e| GameError::IllegalMove(format!("Invalid game state: {e}")))?;
 
     // Deserialize the move data
     let tic_tac_toe_move: TicTacToeMove = serde_json::from_value(move_data)
-        .map_err(|e| GameError::IllegalMove(format!("Invalid move data: {}", e)))?;
+        .map_err(|e| GameError::IllegalMove(format!("Invalid move data: {e}")))?;
 
     // Determine which player symbol this player is
     let player_symbol = if player_id == game_match.player1_id {
@@ -49,7 +49,7 @@ fn handle_tic_tac_toe_move(
 
     // Serialize the new state back to JSON
     let new_state_json = serde_json::to_value(&new_state)
-        .map_err(|e| GameError::IllegalMove(format!("Failed to serialize state: {}", e)))?;
+        .map_err(|e| GameError::IllegalMove(format!("Failed to serialize state: {e}")))?;
 
     // Determine outcome if game is finished
     let outcome = if new_state.is_finished {
@@ -76,7 +76,7 @@ fn handle_rps_move(
 ) -> Result<GameMoveResult, GameError> {
     // Deserialize the current game state from JSON
     let current_state: RPSGameState = serde_json::from_value(game_match.game_state.clone())
-        .map_err(|e| GameError::IllegalMove(format!("Invalid game state: {}", e)))?;
+        .map_err(|e| GameError::IllegalMove(format!("Invalid game state: {e}")))?;
 
     // Deserialize the move data - expects {"choice": "rock"|"paper"|"scissors"}
     #[derive(serde::Deserialize)]
@@ -85,7 +85,7 @@ fn handle_rps_move(
     }
 
     let move_data: RPSMoveData = serde_json::from_value(move_data)
-        .map_err(|e| GameError::IllegalMove(format!("Invalid move data: {}", e)))?;
+        .map_err(|e| GameError::IllegalMove(format!("Invalid move data: {e}")))?;
 
     // Determine which player symbol this player is
     let player_symbol = if player_id == game_match.player1_id {
@@ -102,7 +102,7 @@ fn handle_rps_move(
 
     // Serialize the new state back to JSON
     let new_state_json = serde_json::to_value(&new_state)
-        .map_err(|e| GameError::IllegalMove(format!("Failed to serialize state: {}", e)))?;
+        .map_err(|e| GameError::IllegalMove(format!("Failed to serialize state: {e}")))?;
 
     // Determine outcome if game is finished
     let outcome = if new_state.is_finished() {
