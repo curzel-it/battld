@@ -1,4 +1,4 @@
-use battld_common::{ClientMessage, ServerMessage};
+use battld_common::{ClientMessage, ServerMessage, Match};
 use futures_util::{SinkExt, StreamExt};
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
@@ -11,6 +11,7 @@ use std::io::Write as _;
 pub struct WebSocketClient {
     tx: mpsc::UnboundedSender<ClientMessage>,
     server_messages: Arc<RwLock<Vec<ServerMessage>>>,
+    current_match: Arc<RwLock<Option<Match>>>,
     connected: Arc<RwLock<bool>>,
     close_tx: Arc<RwLock<Option<mpsc::UnboundedSender<()>>>>,
     #[allow(dead_code)]
@@ -34,6 +35,10 @@ impl WebSocketClient {
         // Shared storage for server messages
         let server_messages = Arc::new(RwLock::new(Vec::new()));
         let server_messages_clone = server_messages.clone();
+
+        // Shared storage for current match state
+        let current_match = Arc::new(RwLock::new(None));
+        let current_match_clone = current_match.clone();
 
         // Connection status
         let connected = Arc::new(RwLock::new(true));
@@ -86,6 +91,17 @@ impl WebSocketClient {
                                 let _ = writeln!(file, "[RECV] {server_msg:?}");
                             }
 
+                            // Update current match state immediately for game state updates
+                            match &server_msg {
+                                ServerMessage::MatchFound { match_data } => {
+                                    *current_match_clone.write().await = Some(match_data.clone());
+                                }
+                                ServerMessage::GameStateUpdate { match_data } => {
+                                    *current_match_clone.write().await = Some(match_data.clone());
+                                }
+                                _ => {}
+                            }
+
                             // Don't store Pong messages, they're just for keepalive
                             if !matches!(server_msg, ServerMessage::Pong) {
                                 let mut messages = server_messages_clone.write().await;
@@ -129,6 +145,7 @@ impl WebSocketClient {
         Ok(WebSocketClient {
             tx,
             server_messages,
+            current_match,
             connected,
             close_tx: close_tx_shared,
             keepalive_handle: Some(keepalive_handle),
@@ -147,6 +164,11 @@ impl WebSocketClient {
         let result = messages.clone();
         messages.clear();
         result
+    }
+
+    /// Get the current match state (updated in real-time)
+    pub async fn get_current_match(&self) -> Option<Match> {
+        self.current_match.read().await.clone()
     }
 
     /// Check if the WebSocket is currently connected

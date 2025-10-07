@@ -150,25 +150,22 @@ async fn run_game_loop(session: &mut SessionState, mut game_match: Match) -> Res
         // Determine if we need to make a move
         let state = get_rps_state(&game_match)?;
 
-        // Find the first incomplete round (where we haven't moved yet)
-        let my_move_submitted = state.rounds.iter().all(|round| {
+        // Check if we've moved in the current (last) round
+        let my_move_submitted = if let Some(last_round) = state.rounds.last() {
             match my_number {
-                1 => round.0.is_some(),
-                2 => round.1.is_some(),
+                1 => last_round.0.is_some(),
+                2 => last_round.1.is_some(),
                 _ => false,
             }
-        });
+        } else {
+            false
+        };
 
         if my_move_submitted {
             // We've already moved, wait for opponent
             println!("\n{}", "Waiting for opponent's move...".dimmed());
 
-            let (new_match, new_status) = wait_for_game_update(ws_client).await?;
-            game_match = new_match;
-
-            if let Some(status) = new_status {
-                println!("\n{}", status.yellow());
-            }
+            game_match = wait_for_game_update(ws_client, &game_match).await?;
         } else {
             // We need to make a move
             println!("\n{}", "Your turn! Choose your move:".cyan().bold());
@@ -186,13 +183,8 @@ async fn run_game_loop(session: &mut SessionState, mut game_match: Match) -> Res
 
             println!("\n{}", "Move submitted! Waiting for opponent...".dimmed());
 
-            // Wait for response
-            let (new_match, new_status) = wait_for_game_update(ws_client).await?;
-            game_match = new_match;
-
-            if let Some(status) = new_status {
-                println!("\n{}", status.yellow());
-            }
+            // Wait for response (state update confirming our move was registered)
+            game_match = wait_for_game_update(ws_client, &game_match).await?;
         }
     }
 }
@@ -215,32 +207,59 @@ fn display_rps_match(game_match: &Match, my_number: i32) -> Result<(), Box<dyn s
     println!();
 
     // Display round history
-    if state.rounds.len() > 1 || state.rounds[0].0.is_some() {
+    if state.rounds.len() > 1 || state.rounds[0].0.is_some() || state.rounds[0].1.is_some() {
         println!("{}", "Round History:".dimmed());
         for (idx, round) in state.rounds.iter().enumerate() {
-            if let (Some(p1_move), Some(p2_move)) = round {
-                let round_num = idx + 1;
-                let my_move = if my_number == 1 { p1_move } else { p2_move };
-                let opp_move = if my_number == 1 { p2_move } else { p1_move };
+            let round_num = idx + 1;
+            match round {
+                (Some(p1_move), Some(p2_move)) => {
+                    // Completed round - show result
+                    let my_move = if my_number == 1 { p1_move } else { p2_move };
+                    let opp_move = if my_number == 1 { p2_move } else { p1_move };
 
-                let result = match RPSGameState::compute_round_winner(p1_move, p2_move) {
-                    Some(winner) => {
-                        if (winner == 1 && my_number == 1) || (winner == 2 && my_number == 2) {
-                            "You won".green()
-                        } else {
-                            "You lost".red()
+                    let result = match RPSGameState::compute_round_winner(p1_move, p2_move) {
+                        Some(winner) => {
+                            if (winner == 1 && my_number == 1) || (winner == 2 && my_number == 2) {
+                                "You won".green()
+                            } else {
+                                "You lost".red()
+                            }
                         }
-                    }
-                    None => "Draw".yellow(),
-                };
+                        None => "Draw".yellow(),
+                    };
 
-                println!(
-                    "  Round {}: {} vs {} - {}",
-                    round_num,
-                    capitalize(my_move),
-                    capitalize(opp_move),
-                    result
-                );
+                    println!(
+                        "  Round {}: {} vs {} - {}",
+                        round_num,
+                        capitalize(my_move),
+                        capitalize(opp_move),
+                        result
+                    );
+                }
+                (Some(p1_move), None) if my_number == 1 => {
+                    // Player 1 moved, waiting for player 2
+                    println!(
+                        "  Round {}: {} vs {} - {}",
+                        round_num,
+                        capitalize(p1_move),
+                        "???".dimmed(),
+                        "Waiting...".dimmed()
+                    );
+                }
+                (None, Some(p2_move)) if my_number == 2 => {
+                    // Player 2 moved, waiting for player 1
+                    println!(
+                        "  Round {}: {} vs {} - {}",
+                        round_num,
+                        capitalize(p2_move),
+                        "???".dimmed(),
+                        "Waiting...".dimmed()
+                    );
+                }
+                _ => {
+                    // Either both null or opponent moved but we haven't
+                    // Don't display anything for this round
+                }
             }
         }
         println!();
@@ -284,28 +303,31 @@ fn read_rps_input() -> Result<String, Box<dyn std::error::Error>> {
     }
 }
 
-async fn wait_for_game_update(ws_client: &WebSocketClient) -> Result<(Match, Option<String>), Box<dyn std::error::Error>> {
-    loop {
-        let messages = ws_client.get_messages().await;
+async fn wait_for_game_update(ws_client: &WebSocketClient, current_state: &Match) -> Result<Match, Box<dyn std::error::Error>> {
+    // Wait for the match state to change from the current state
+    let current_state_json = serde_json::to_string(&current_state.game_state)?;
+    let current_in_progress = current_state.in_progress;
 
+    loop {
+        // Check for error messages
+        let messages = ws_client.get_messages().await;
         for msg in messages {
-            match msg {
-                ServerMessage::GameStateUpdate { match_data } => {
-                    return Ok((match_data, None));
-                }
-                ServerMessage::MatchEnded { reason: _reason } => {
-                    // Wait a bit for final GameStateUpdate
-                    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-                    continue;
-                }
-                ServerMessage::Error { message } => {
-                    return Err(format!("Error: {message}").into());
-                }
-                _ => {}
+            if let ServerMessage::Error { message } = msg {
+                return Err(format!("Error: {message}").into());
             }
         }
 
-        tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+        // Check if current match state has changed
+        if let Some(new_match) = ws_client.get_current_match().await {
+            let new_state_json = serde_json::to_string(&new_match.game_state)?;
+
+            // State has changed - return the new state
+            if new_state_json != current_state_json || new_match.in_progress != current_in_progress {
+                return Ok(new_match);
+            }
+        }
+
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
     }
 }
 
