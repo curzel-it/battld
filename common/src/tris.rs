@@ -46,12 +46,12 @@ pub type CellState = i32;
 /// ```
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct GameState {
-    pub cells: [CellState; 9],
+    pub board: [CellState; 9],
 }
 
 impl GameState {
     pub fn new() -> Self {
-        Self { cells: [0; 9] }
+        Self { board: [0; 9] }
     }
 
     /// Convert row and column (0-indexed) to board index
@@ -68,13 +68,13 @@ impl GameState {
         if index >= 9 {
             return Err("Invalid cell index".to_string());
         }
-        if self.cells[index] != 0 {
+        if self.board[index] != 0 {
             return Err("Cell already occupied".to_string());
         }
         if player != 1 && player != 2 {
             return Err("Invalid player number".to_string());
         }
-        self.cells[index] = player;
+        self.board[index] = player;
         Ok(())
     }
 
@@ -89,10 +89,10 @@ impl GameState {
 
         for win in &wins {
             let [a, b, c] = *win;
-            if self.cells[a] != 0
-                && self.cells[a] == self.cells[b]
-                && self.cells[b] == self.cells[c] {
-                return Some(self.cells[a]);
+            if self.board[a] != 0
+                && self.board[a] == self.board[b]
+                && self.board[b] == self.board[c] {
+                return Some(self.board[a]);
             }
         }
         None
@@ -100,7 +100,7 @@ impl GameState {
 
     /// Check if the board is full (draw condition if no winner)
     pub fn is_full(&self) -> bool {
-        self.cells.iter().all(|&cell| cell != 0)
+        self.board.iter().all(|&cell| cell != 0)
     }
 
     /// Convert to JSON string
@@ -184,7 +184,7 @@ mod tests {
     fn test_place_move() {
         let mut state = GameState::new();
         assert!(state.place_move(0, 1).is_ok());
-        assert_eq!(state.cells[0], 1);
+        assert_eq!(state.board[0], 1);
 
         // Can't place on occupied cell
         assert!(state.place_move(0, 2).is_err());
@@ -193,21 +193,21 @@ mod tests {
     #[test]
     fn test_check_winner_row() {
         let mut state = GameState::new();
-        state.cells = [1, 1, 1, 0, 0, 0, 0, 0, 0];
+        state.board = [1, 1, 1, 0, 0, 0, 0, 0, 0];
         assert_eq!(state.check_winner(), Some(1));
     }
 
     #[test]
     fn test_check_winner_column() {
         let mut state = GameState::new();
-        state.cells = [2, 0, 0, 2, 0, 0, 2, 0, 0];
+        state.board = [2, 0, 0, 2, 0, 0, 2, 0, 0];
         assert_eq!(state.check_winner(), Some(2));
     }
 
     #[test]
     fn test_check_winner_diagonal() {
         let mut state = GameState::new();
-        state.cells = [1, 0, 0, 0, 1, 0, 0, 0, 1];
+        state.board = [1, 0, 0, 0, 1, 0, 0, 0, 1];
         assert_eq!(state.check_winner(), Some(1));
     }
 
@@ -216,7 +216,7 @@ mod tests {
         let mut state = GameState::new();
         assert!(!state.is_full());
 
-        state.cells = [1, 2, 1, 2, 1, 2, 2, 1, 2];
+        state.board = [1, 2, 1, 2, 1, 2, 2, 1, 2];
         assert!(state.is_full());
     }
 }
