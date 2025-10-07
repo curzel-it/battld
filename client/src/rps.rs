@@ -149,14 +149,15 @@ async fn run_game_loop(session: &mut SessionState, mut game_match: Match) -> Res
 
         // Determine if we need to make a move
         let state = get_rps_state(&game_match)?;
-        let current_round_idx = state.rounds.len() - 1;
-        let current_round = &state.rounds[current_round_idx];
 
-        let my_move_submitted = match my_number {
-            1 => current_round.0.is_some(),
-            2 => current_round.1.is_some(),
-            _ => false,
-        };
+        // Find the first incomplete round (where we haven't moved yet)
+        let my_move_submitted = state.rounds.iter().all(|round| {
+            match my_number {
+                1 => round.0.is_some(),
+                2 => round.1.is_some(),
+                _ => false,
+            }
+        });
 
         if my_move_submitted {
             // We've already moved, wait for opponent
