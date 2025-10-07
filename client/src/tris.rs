@@ -81,7 +81,7 @@ async fn run_game_loop(session: &SessionState, mut game_match: Match) -> Result<
         }
 
         clear_screen()?;
-        display_match(&game_match, player_id);
+        display_match(&game_match, player_id, my_number);
 
         // Display status message if any
         if let Some(msg) = &status_message {
@@ -132,7 +132,8 @@ async fn run_game_loop(session: &SessionState, mut game_match: Match) -> Result<
         }
 
         // Check if it's our turn
-        if game_match.current_player == my_number {
+        let state = get_tic_tac_toe_state(&game_match)?;
+        if state.current_player == my_number {
             if let Ok(mut file) = OpenOptions::new().create(true).append(true).open("client.log") {
                 let _ = writeln!(file, "[GAME LOOP] Our turn, prompting for input");
             }
@@ -200,7 +201,7 @@ async fn run_game_loop(session: &SessionState, mut game_match: Match) -> Result<
                         ServerMessage::PlayerDisconnected { player_id: disconnected_id } => {
                             terminal::disable_raw_mode()?;
                             clear_screen()?;
-                            display_match(&game_match, player_id);
+                            display_match(&game_match, player_id, my_number);
                             println!("\n{}", format!("Opponent (Player {disconnected_id}) disconnected!").yellow().bold());
                             println!("{}", "Waiting for them to reconnect (10 seconds)...".dimmed());
 
@@ -365,18 +366,18 @@ fn wait_for_keypress() -> io::Result<()> {
     result
 }
 
-fn display_match(game_match: &Match, current_player_id: i64) {
+fn display_match(game_match: &Match, current_player_id: i64, my_number: i32) {
     println!("\n{}", "─── Tic Tac Toe ───".bold());
     println!("Match ID: {}", game_match.id);
 
     let am_player1 = game_match.player1_id == current_player_id;
-    let my_number = if am_player1 { 1 } else { 2 };
-    let opponent_id = if am_player1 { game_match.player2_id } else { game_match.player1_id };
+    let opponent_number = if my_number == 1 { 2 } else { 1 };
 
-    println!("You (Player {my_number}) vs Player {opponent_id}");
+    println!("You (Player {my_number}) vs Opponent (Player {opponent_number})");
 
     if game_match.in_progress {
-        if game_match.current_player == my_number {
+        let state = get_tic_tac_toe_state(game_match).unwrap_or_else(|_| GameState::new());
+        if state.current_player == my_number {
             println!("{} {}", "Your turn!".green().bold(), "(row col + enter)".dimmed());
         } else {
             println!("{}", "Opponent's turn".yellow());
@@ -416,7 +417,7 @@ fn display_board(state: &GameState, my_number: i32) {
         print!(" {row}  ");
         for col in 0..3 {
             let idx = row * 3 + col;
-            let cell = state.cells[idx];
+            let cell = state.board[idx];
             let symbol = match cell {
                 0 => " ".to_string(),
                 n if n == my_number => "X".green().bold().to_string(),

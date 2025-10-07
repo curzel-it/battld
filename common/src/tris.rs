@@ -47,11 +47,19 @@ pub type CellState = i32;
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct GameState {
     pub board: [CellState; 9],
+    pub current_player: i32,
+    pub winner: Option<i32>,
+    pub is_finished: bool,
 }
 
 impl GameState {
     pub fn new() -> Self {
-        Self { board: [0; 9] }
+        Self {
+            board: [0; 9],
+            current_player: 1,
+            winner: None,
+            is_finished: false,
+        }
     }
 
     /// Convert row and column (0-indexed) to board index
@@ -129,7 +137,6 @@ pub struct Match {
     pub in_progress: bool,
     pub outcome: Option<MatchOutcome>,
     pub game_type: GameType,
-    pub current_player: i32, // 1 or 2
     pub game_state: serde_json::Value,
 }
 

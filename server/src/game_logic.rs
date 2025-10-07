@@ -124,10 +124,11 @@ pub async fn handle_join_matchmaking_logic(
             if rng.gen_bool(0.5) { 1 } else { 2 }
         };
 
-        // Initialize game state based on game type
+        // Initialize game state based on game type with random first player
         let game_state_json = match game_type {
             GameType::TicTacToe => {
-                let state = TicTacToeGameState::new();
+                let mut state = TicTacToeGameState::new();
+                state.current_player = first_player;
                 serde_json::to_string(&state).unwrap()
             }
             GameType::RockPaperScissors => {
@@ -137,7 +138,7 @@ pub async fn handle_join_matchmaking_logic(
         };
 
         // Update the waiting match
-        if (db.join_waiting_match(waiting_match.id, p2_id, first_player as i64, &game_state_json).await).is_ok() {
+        if (db.join_waiting_match(waiting_match.id, p2_id, &game_state_json).await).is_ok() {
             if let Some(match_record) = db.get_match_by_id(waiting_match.id).await {
                 if let Some(match_info) = match_record.to_match() {
                     // Notify both players
@@ -226,9 +227,6 @@ pub async fn handle_make_move_logic(
         }
     };
 
-    // Determine next player
-    let next_player = if game_match.current_player == 1 { 2 } else { 1 };
-
     let in_progress = !move_result.is_finished;
     let outcome_str = move_result.outcome.as_ref().map(|o| o.to_string());
 
@@ -238,14 +236,12 @@ pub async fn handle_make_move_logic(
     // Update match in database
     if (db.update_match(
         game_match.id,
-        next_player as i64,
         &new_state_str,
         in_progress,
         outcome_str.as_deref(),
     ).await).is_ok() {
         // Update match struct with new values
         game_match.game_state = move_result.new_state;
-        game_match.current_player = next_player;
         game_match.in_progress = in_progress;
         game_match.outcome = move_result.outcome;
 
@@ -375,7 +371,6 @@ pub async fn handle_disconnect_timeout_logic(
     let game_state_str = serde_json::to_string(&game_match.game_state).unwrap();
     let _ = db.update_match(
         game_match.id,
-        game_match.current_player as i64,
         &game_state_str,
         false, // not in progress
         Some(&MatchOutcome::Draw.to_string()),
@@ -444,7 +439,7 @@ mod tests {
         // Create a match where player 1 goes first
         let game_state = TicTacToeGameState::new();
         let game_state_json = serde_json::to_string(&game_state).unwrap();
-        let _match_id = db.create_match(p1, p2, 1, &game_state_json, "tris").await.unwrap();
+        let _match_id = db.create_match(p1, p2, &game_state_json, "tris").await.unwrap();
 
         // Try to make a move as player 2 (not their turn)
         let move_data = serde_json::json!({"row": 0, "col": 0});
@@ -471,7 +466,7 @@ mod tests {
         // Create a match where player 1 goes first
         let game_state = TicTacToeGameState::new();
         let game_state_json = serde_json::to_string(&game_state).unwrap();
-        let match_id = db.create_match(p1, p2, 1, &game_state_json, "tris").await.unwrap();
+        let match_id = db.create_match(p1, p2, &game_state_json, "tris").await.unwrap();
 
         // Make a valid move as player 1
         let move_data = serde_json::json!({"row": 0, "col": 0});
@@ -490,7 +485,9 @@ mod tests {
             match &msg.message {
                 ServerMessage::GameStateUpdate { match_data } => {
                     assert_eq!(match_data.id, match_id);
-                    assert_eq!(match_data.current_player, 2); // Turn should switch to player 2
+                    // Extract current_player from game_state
+                    let state: TicTacToeGameState = serde_json::from_value(match_data.game_state.clone()).unwrap();
+                    assert_eq!(state.current_player, 2); // Turn should switch to player 2
                     assert!(match_data.in_progress);
                 }
                 _ => panic!("Expected GameStateUpdate message"),
@@ -516,7 +513,7 @@ mod tests {
         // Now player 1 can win by playing [0,2]
 
         let game_state_json = serde_json::to_string(&game_state).unwrap();
-        let match_id = db.create_match(p1, p2, 1, &game_state_json, "tris").await.unwrap();
+        let match_id = db.create_match(p1, p2, &game_state_json, "tris").await.unwrap();
 
         // Make the winning move as player 1
         let move_data = serde_json::json!({"row": 0, "col": 2});
@@ -559,7 +556,7 @@ mod tests {
         // Create an active match
         let game_state = TicTacToeGameState::new();
         let game_state_json = serde_json::to_string(&game_state).unwrap();
-        let match_id = db.create_match(p1, p2, 1, &game_state_json, "tris").await.unwrap();
+        let match_id = db.create_match(p1, p2, &game_state_json, "tris").await.unwrap();
 
         // Player 1 disconnects
         let (messages, match_id_opt) = handle_disconnect_logic(p1, &db).await;
@@ -588,7 +585,7 @@ mod tests {
         // Create an active match
         let game_state = TicTacToeGameState::new();
         let game_state_json = serde_json::to_string(&game_state).unwrap();
-        let match_id = db.create_match(p1, p2, 1, &game_state_json, "tris").await.unwrap();
+        let match_id = db.create_match(p1, p2, &game_state_json, "tris").await.unwrap();
 
         // Timeout occurs
         let messages = handle_disconnect_timeout_logic(p1, match_id, &db).await;

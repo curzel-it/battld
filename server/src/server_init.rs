@@ -152,13 +152,12 @@ pub async fn seed_users(pool: &SqlitePool) -> Result<(), Box<dyn std::error::Err
         let (game_state, outcome, current_player) = generate_random_completed_game();
 
         sqlx::query(
-            "INSERT INTO matches (player1_id, player2_id, in_progress, outcome, game_type, current_player, game_state)
-             VALUES (?, ?, 0, ?, 'tris', ?, ?)"
+            "INSERT INTO matches (player1_id, player2_id, in_progress, outcome, game_type, game_state)
+             VALUES (?, ?, 0, ?, 'tris', ?)"
         )
         .bind(player1_id)
         .bind(player2_id)
         .bind(&outcome)
-        .bind(current_player)
         .bind(&game_state)
         .execute(pool)
         .await?;

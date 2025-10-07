@@ -140,7 +140,6 @@ mod tests {
             in_progress: true,
             outcome: None,
             game_type: GameType::TicTacToe,
-            current_player: 1,
             game_state: state_json,
         };
 
@@ -169,7 +168,6 @@ mod tests {
             in_progress: true,
             outcome: None,
             game_type: GameType::TicTacToe,
-            current_player: 1,
             game_state: state_json,
         };
 
@@ -192,7 +190,6 @@ mod tests {
             in_progress: true,
             outcome: None,
             game_type: GameType::TicTacToe,
-            current_player: 1,
             game_state: state_json,
         };
 
@@ -216,7 +213,6 @@ mod tests {
             in_progress: true,
             outcome: None,
             game_type: GameType::RockPaperScissors,
-            current_player: 1,
             game_state: state_json,
         };
 

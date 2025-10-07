@@ -26,7 +26,7 @@ use database::Database;
 use log_requests::log_request_middleware;
 use websocket::ConnectionRegistry;
 
-const HTTP_ADDR: &str = "0.0.0.0:80";
+const HTTP_ADDR: &str = "0.0.0.0:8080";
 const HTTPS_ADDR: &str = "0.0.0.0:443";
 const DATABASE_URL: &str = "sqlite://game.db";
 

@@ -16,7 +16,6 @@ CREATE TABLE IF NOT EXISTS matches (
     in_progress INTEGER NOT NULL DEFAULT 1,
     outcome TEXT,
     game_type TEXT NOT NULL DEFAULT 'tris',
-    current_player INTEGER,
     game_state TEXT,
     FOREIGN KEY (player1_id) REFERENCES players (id),
     FOREIGN KEY (player2_id) REFERENCES players (id)
