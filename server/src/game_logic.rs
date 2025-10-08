@@ -1,57 +1,14 @@
-use battld_common::{GameType, MatchOutcome, MatchEndReason, ServerMessage, Match};
+use battld_common::{MatchOutcome, MatchEndReason, ServerMessage, GameType};
 use crate::database::Database;
 use crate::game_router;
-use crate::games::tic_tac_toe::TicTacToeGameState;
-use crate::games::rock_paper_scissors::RPSGameState;
+
+// Match is used in game_router functions called from this module
 
 /// Represents a message to be sent to a specific player
 #[derive(Debug, Clone)]
 pub struct OutgoingMessage {
     pub player_id: i64,
     pub message: ServerMessage,
-}
-
-/// Redact opponent's moves in RPS game state for a specific player
-fn redact_match_for_player(match_data: &Match, player_id: i64) -> Match {
-    // Only redact for RPS games
-    if match_data.game_type != GameType::RockPaperScissors {
-        return match_data.clone();
-    }
-
-    // Deserialize the RPS game state
-    let rps_state: RPSGameState = match serde_json::from_value(match_data.game_state.clone()) {
-        Ok(state) => state,
-        Err(_) => return match_data.clone(), // If deserialization fails, return as-is
-    };
-
-    // Determine which player number this is (1 or 2)
-    let player_num = if player_id == match_data.player1_id {
-        1
-    } else if player_id == match_data.player2_id {
-        2
-    } else {
-        return match_data.clone(); // Not a player in this match
-    };
-
-    // Redact the state for this player
-    let redacted_state = rps_state.redact_for_player(player_num);
-
-    // Serialize back to JSON
-    let redacted_json = match serde_json::to_value(&redacted_state) {
-        Ok(json) => json,
-        Err(_) => return match_data.clone(),
-    };
-
-    // Create a new Match with redacted game state
-    Match {
-        id: match_data.id,
-        player1_id: match_data.player1_id,
-        player2_id: match_data.player2_id,
-        in_progress: match_data.in_progress,
-        outcome: match_data.outcome.clone(),
-        game_type: match_data.game_type.clone(),
-        game_state: redacted_json,
-    }
 }
 
 /// Handle resume match request - returns messages to send
@@ -119,13 +76,13 @@ pub async fn handle_resume_match_logic(
         OutgoingMessage {
             player_id,
             message: ServerMessage::GameStateUpdate {
-                match_data: redact_match_for_player(&match_info, player_id),
+                match_data: game_router::redact_match_for_player(&match_info, player_id),
             },
         },
         OutgoingMessage {
             player_id: opponent_id,
             message: ServerMessage::GameStateUpdate {
-                match_data: redact_match_for_player(&match_info, opponent_id),
+                match_data: game_router::redact_match_for_player(&match_info, opponent_id),
             },
         },
     ]
@@ -137,8 +94,6 @@ pub async fn handle_join_matchmaking_logic(
     game_type: GameType,
     db: &Database,
 ) -> Vec<OutgoingMessage> {
-    use rand::Rng;
-
     // Check if player already has an active match
     if let Some(match_record) = db.get_active_match_for_player(player_id).await {
         println!("Player {player_id} already in match {}", match_record.id);
@@ -146,7 +101,7 @@ pub async fn handle_join_matchmaking_logic(
             return vec![OutgoingMessage {
                 player_id,
                 message: ServerMessage::GameStateUpdate {
-                    match_data: redact_match_for_player(&match_info, player_id),
+                    match_data: game_router::redact_match_for_player(&match_info, player_id),
                 },
             }];
         }
@@ -161,24 +116,8 @@ pub async fn handle_join_matchmaking_logic(
         let p2_id = player_id;
         println!("Matching player {player_id} with waiting player {p1_id} for game type: {game_type_str}");
 
-        // Randomize who goes first
-        let first_player = {
-            let mut rng = rand::thread_rng();
-            if rng.gen_bool(0.5) { 1 } else { 2 }
-        };
-
-        // Initialize game state based on game type with random first player
-        let game_state_json = match game_type {
-            GameType::TicTacToe => {
-                let mut state = TicTacToeGameState::new();
-                state.current_player = first_player;
-                serde_json::to_string(&state).unwrap()
-            }
-            GameType::RockPaperScissors => {
-                let state = RPSGameState::new();
-                serde_json::to_string(&state).unwrap()
-            }
-        };
+        // Initialize game state based on game type
+        let game_state_json = game_router::initialize_game_state(&game_type);
 
         // Update the waiting match
         if (db.join_waiting_match(waiting_match.id, p2_id, &game_state_json).await).is_ok() {
@@ -189,13 +128,13 @@ pub async fn handle_join_matchmaking_logic(
                         OutgoingMessage {
                             player_id: p1_id,
                             message: ServerMessage::MatchFound {
-                                match_data: redact_match_for_player(&match_info, p1_id),
+                                match_data: game_router::redact_match_for_player(&match_info, p1_id),
                             },
                         },
                         OutgoingMessage {
                             player_id: p2_id,
                             message: ServerMessage::MatchFound {
-                                match_data: redact_match_for_player(&match_info, p2_id),
+                                match_data: game_router::redact_match_for_player(&match_info, p2_id),
                             },
                         },
                     ];
@@ -302,13 +241,13 @@ pub async fn handle_make_move_logic(
             OutgoingMessage {
                 player_id: game_match.player1_id,
                 message: ServerMessage::GameStateUpdate {
-                    match_data: redact_match_for_player(&game_match, game_match.player1_id),
+                    match_data: game_router::redact_match_for_player(&game_match, game_match.player1_id),
                 },
             },
             OutgoingMessage {
                 player_id: game_match.player2_id,
                 message: ServerMessage::GameStateUpdate {
-                    match_data: redact_match_for_player(&game_match, game_match.player2_id),
+                    match_data: game_router::redact_match_for_player(&game_match, game_match.player2_id),
                 },
             },
         ];
@@ -439,6 +378,7 @@ pub async fn handle_disconnect_timeout_logic(
 mod tests {
     use super::*;
     use sqlx::SqlitePool;
+    use crate::games::tic_tac_toe::TicTacToeGameState;
 
     // Helper function to create a test database
     async fn create_test_db() -> Database {

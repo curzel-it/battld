@@ -1,6 +1,7 @@
 use crate::games::{tic_tac_toe::*, rock_paper_scissors::*, GameError};
 use battld_common::{GameType, Match, MatchOutcome};
 use serde_json::Value as JsonValue;
+use rand::Rng;
 
 /// Result of processing a game move
 pub struct GameMoveResult {
@@ -18,6 +19,75 @@ pub fn handle_game_move(
     match game_match.game_type {
         GameType::TicTacToe => handle_tic_tac_toe_move(game_match, player_id, move_data),
         GameType::RockPaperScissors => handle_rps_move(game_match, player_id, move_data),
+    }
+}
+
+/// Redact match data for a specific player based on game type
+pub fn redact_match_for_player(match_data: &Match, player_id: i64) -> Match {
+    // Determine which player number this is (1 or 2)
+    let player_num = if player_id == match_data.player1_id {
+        1
+    } else if player_id == match_data.player2_id {
+        2
+    } else {
+        return match_data.clone(); // Not a player in this match
+    };
+
+    // Route to appropriate game redaction logic
+    let redacted_state = match match_data.game_type {
+        GameType::TicTacToe => {
+            // Deserialize, redact, and serialize TicTacToe state
+            match serde_json::from_value::<TicTacToeGameState>(match_data.game_state.clone()) {
+                Ok(state) => {
+                    let redacted = state.redact_for_player(player_num);
+                    serde_json::to_value(&redacted).unwrap_or(match_data.game_state.clone())
+                }
+                Err(_) => match_data.game_state.clone(),
+            }
+        }
+        GameType::RockPaperScissors => {
+            // Deserialize, redact, and serialize RPS state
+            match serde_json::from_value::<RPSGameState>(match_data.game_state.clone()) {
+                Ok(state) => {
+                    let redacted = state.redact_for_player(player_num);
+                    serde_json::to_value(&redacted).unwrap_or(match_data.game_state.clone())
+                }
+                Err(_) => match_data.game_state.clone(),
+            }
+        }
+    };
+
+    // Create a new Match with redacted game state
+    Match {
+        id: match_data.id,
+        player1_id: match_data.player1_id,
+        player2_id: match_data.player2_id,
+        in_progress: match_data.in_progress,
+        outcome: match_data.outcome.clone(),
+        game_type: match_data.game_type.clone(),
+        game_state: redacted_state,
+    }
+}
+
+/// Initialize a new game state for a given game type
+/// Returns the serialized game state as a JSON string
+pub fn initialize_game_state(game_type: &GameType) -> String {
+    // Randomize who goes first
+    let first_player = {
+        let mut rng = rand::thread_rng();
+        if rng.gen_bool(0.5) { 1 } else { 2 }
+    };
+
+    match game_type {
+        GameType::TicTacToe => {
+            let mut state = TicTacToeGameState::new();
+            state.current_player = first_player;
+            serde_json::to_string(&state).unwrap()
+        }
+        GameType::RockPaperScissors => {
+            let state = RPSGameState::new();
+            serde_json::to_string(&state).unwrap()
+        }
     }
 }
 

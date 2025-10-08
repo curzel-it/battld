@@ -46,6 +46,12 @@ impl TicTacToeGameState {
         }
     }
 
+    /// Redact game state for a specific player
+    /// TicTacToe doesn't need redaction (all info is public), so returns clone
+    pub fn redact_for_player(&self, _player: PlayerSymbol) -> Self {
+        self.clone()
+    }
+
     /// Check if the board is full (draw condition if no winner)
     fn is_full(&self) -> bool {
         self.board.iter().all(|&cell| cell != 0)
