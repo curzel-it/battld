@@ -16,7 +16,7 @@ impl Default for Config {
             player_id: None,
             private_key_path: Some("private_key.pem".to_string()),
             public_key_path: Some("public_key.pem".to_string()),
-            server_url: Some("http://0.0.0.0:8080".to_string()),
+            server_url: Some("http://127.0.0.1:8080".to_string()),
         }
     }
 }
