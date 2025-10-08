@@ -3,6 +3,7 @@ use crate::state::SessionState;
 use std::io::{self, Write};
 use tokio::io::AsyncBufReadExt;
 use colored::*;
+use crossterm::{event::{self, Event}, terminal};
 
 #[derive(Debug, Clone)]
 struct RoundResult {
@@ -374,7 +375,7 @@ pub async fn start_game(session: &mut SessionState, game_type: GameType) -> Resu
                             ui_state.render(my_number.unwrap_or(1));
                             println!("\nPress any key to return to main menu...");
                             io::stdout().flush()?;
-                            crate::wait_for_keypress()?;
+                            wait_for_keypress_after_game()?;
                             return Ok(());
                         }
                         ServerMessage::MatchFound { match_data } | ServerMessage::GameStateUpdate { match_data } => {
@@ -412,7 +413,7 @@ pub async fn start_game(session: &mut SessionState, game_type: GameType) -> Resu
                                 ui_state.render(my_number.unwrap());
                                 println!("\nPress any key to return to main menu...");
                                 io::stdout().flush()?;
-                                crate::wait_for_keypress()?;
+                                wait_for_keypress_after_game()?;
                                 return Ok(());
                             }
 
@@ -460,6 +461,12 @@ pub async fn start_game(session: &mut SessionState, game_type: GameType) -> Resu
             result = stdin_reader.read_line(&mut input_line), if waiting_for_input => {
                 if let Ok(_) = result {
                     let move_str = input_line.trim().to_lowercase();
+                    input_line.clear();
+
+                    // Skip empty input
+                    if move_str.is_empty() {
+                        continue;
+                    }
 
                     // Parse the move
                     let move_choice = match move_str.as_str() {
@@ -503,7 +510,6 @@ pub async fn start_game(session: &mut SessionState, game_type: GameType) -> Resu
                         print!("  > ");
                         io::stdout().flush()?;
                     }
-                    input_line.clear();
                 }
             }
         }
@@ -527,5 +533,27 @@ pub enum RPSMove {
 
 pub async fn resume_game(_session: &mut SessionState, _game_match: Match) -> Result<(), Box<dyn std::error::Error>> {
     println!("Resume game not implemented in simple message printer mode");
+    Ok(())
+}
+
+fn wait_for_keypress_after_game() -> io::Result<()> {
+    // First, drain any pending events in the terminal buffer
+    terminal::enable_raw_mode()?;
+
+    // Clear any buffered input
+    while event::poll(std::time::Duration::from_millis(10))? {
+        event::read()?; // Consume and discard
+    }
+
+    // Now wait for an actual keypress
+    loop {
+        if event::poll(std::time::Duration::from_millis(100))? {
+            if let Event::Key(_) = event::read()? {
+                break;
+            }
+        }
+    }
+
+    terminal::disable_raw_mode()?;
     Ok(())
 }
