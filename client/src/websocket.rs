@@ -92,6 +92,7 @@ impl WebSocketClient {
                             }
 
                             // Update current match state immediately for game state updates
+                            // Only queue Error messages - everything else is handled in real-time
                             match &server_msg {
                                 ServerMessage::MatchFound { match_data } => {
                                     *current_match_clone.write().await = Some(match_data.clone());
@@ -99,13 +100,19 @@ impl WebSocketClient {
                                 ServerMessage::GameStateUpdate { match_data } => {
                                     *current_match_clone.write().await = Some(match_data.clone());
                                 }
-                                _ => {}
-                            }
-
-                            // Don't store Pong messages, they're just for keepalive
-                            if !matches!(server_msg, ServerMessage::Pong) {
-                                let mut messages = server_messages_clone.write().await;
-                                messages.push(server_msg);
+                                ServerMessage::Error { .. } => {
+                                    // Queue error messages so they can be checked
+                                    let mut messages = server_messages_clone.write().await;
+                                    messages.push(server_msg);
+                                }
+                                _ => {
+                                    // For other messages (WaitingForOpponent, etc), queue them
+                                    // but NOT GameStateUpdate or MatchFound
+                                    if !matches!(server_msg, ServerMessage::Pong) {
+                                        let mut messages = server_messages_clone.write().await;
+                                        messages.push(server_msg);
+                                    }
+                                }
                             }
                         }
                     }

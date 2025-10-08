@@ -69,30 +69,21 @@ pub async fn start_game(session: &mut SessionState, game_type: GameType) -> Resu
     // Join matchmaking with specified game type
     ws_client.send(ClientMessage::JoinMatchmaking { game_type })?;
 
-    // Wait for match
-    let game_match = 'outer: loop {
+    // Wait for match by polling current_match
+    let game_match = loop {
+        // Check for errors
         let messages = ws_client.get_messages().await;
-
         for msg in messages {
-            match msg {
-                ServerMessage::WaitingForOpponent => {
-                    // Continue waiting
-                }
-                ServerMessage::MatchFound { match_data } => {
-                    crate::ui::clear_screen()?;
-                    println!("{}", "Match found!".green().bold());
-                    break 'outer match_data;
-                }
-                ServerMessage::GameStateUpdate { match_data } => {
-                    crate::ui::clear_screen()?;
-                    println!("{}", "Match found!".green().bold());
-                    break 'outer match_data;
-                }
-                ServerMessage::Error { message } => {
-                    return Err(format!("Error: {message}").into());
-                }
-                _ => {}
+            if let ServerMessage::Error { message } = msg {
+                return Err(format!("Error: {message}").into());
             }
+        }
+
+        // Check if a match was found
+        if let Some(match_data) = ws_client.get_current_match().await {
+            crate::ui::clear_screen()?;
+            println!("{}", "Match found!".green().bold());
+            break match_data;
         }
 
         tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
@@ -106,12 +97,16 @@ pub async fn resume_game(session: &mut SessionState, game_match: Match) -> Resul
     run_game_loop(session, game_match).await
 }
 
-async fn run_game_loop(session: &mut SessionState, mut game_match: Match) -> Result<(), Box<dyn std::error::Error>> {
+async fn run_game_loop(session: &mut SessionState, initial_match: Match) -> Result<(), Box<dyn std::error::Error>> {
     let ws_client = session.ws_client.as_ref().unwrap();
     let my_player_id = session.player_id.unwrap();
-    let my_number = if game_match.player1_id == my_player_id { 1 } else { 2 };
+    let my_number = if initial_match.player1_id == my_player_id { 1 } else { 2 };
 
     loop {
+        // Always read the latest state from WebSocket - single source of truth
+        let game_match = ws_client.get_current_match().await
+            .ok_or("No active match")?;
+
         crate::ui::clear_screen()?;
 
         // Display current match state
@@ -165,7 +160,7 @@ async fn run_game_loop(session: &mut SessionState, mut game_match: Match) -> Res
             // We've already moved, wait for opponent
             println!("\n{}", "Waiting for opponent's move...".dimmed());
 
-            game_match = wait_for_game_update(ws_client, &game_match).await?;
+            wait_for_game_state_change(ws_client).await?;
         } else {
             // We need to make a move
             println!("\n{}", "Your turn! Choose your move:".cyan().bold());
@@ -183,8 +178,8 @@ async fn run_game_loop(session: &mut SessionState, mut game_match: Match) -> Res
 
             println!("\n{}", "Move submitted! Waiting for opponent...".dimmed());
 
-            // Wait for response (state update confirming our move was registered)
-            game_match = wait_for_game_update(ws_client, &game_match).await?;
+            // Wait for state change (server will update state)
+            wait_for_game_state_change(ws_client).await?;
         }
     }
 }
@@ -197,7 +192,14 @@ fn display_rps_match(game_match: &Match, my_number: i32) -> Result<(), Box<dyn s
     println!();
 
     let state = get_rps_state(game_match)?;
+
+    // DEBUG: Log the state we're displaying
+    eprintln!("[DEBUG] Displaying state: {:?}", state);
+
     let (p1_wins, p2_wins) = state.get_score();
+
+    // DEBUG: Log the scores
+    eprintln!("[DEBUG] Scores: p1={}, p2={}", p1_wins, p2_wins);
 
     // Display score
     let my_score = if my_number == 1 { p1_wins } else { p2_wins };
@@ -303,10 +305,12 @@ fn read_rps_input() -> Result<String, Box<dyn std::error::Error>> {
     }
 }
 
-async fn wait_for_game_update(ws_client: &WebSocketClient, current_state: &Match) -> Result<Match, Box<dyn std::error::Error>> {
-    // Wait for the match state to change from the current state
-    let current_state_json = serde_json::to_string(&current_state.game_state)?;
-    let current_in_progress = current_state.in_progress;
+async fn wait_for_game_state_change(ws_client: &WebSocketClient) -> Result<(), Box<dyn std::error::Error>> {
+    // Capture current state
+    let current_state_json = ws_client.get_current_match().await
+        .map(|m| serde_json::to_string(&m.game_state).unwrap_or_default());
+
+    eprintln!("[DEBUG] wait_for_game_state_change: waiting for change from: {:?}", current_state_json);
 
     loop {
         // Check for error messages
@@ -317,13 +321,13 @@ async fn wait_for_game_update(ws_client: &WebSocketClient, current_state: &Match
             }
         }
 
-        // Check if current match state has changed
+        // Check if state has changed
         if let Some(new_match) = ws_client.get_current_match().await {
             let new_state_json = serde_json::to_string(&new_match.game_state)?;
 
-            // State has changed - return the new state
-            if new_state_json != current_state_json || new_match.in_progress != current_in_progress {
-                return Ok(new_match);
+            if Some(new_state_json.clone()) != current_state_json {
+                eprintln!("[DEBUG] wait_for_game_state_change: state changed to: {}", new_state_json);
+                return Ok(());
             }
         }
 
