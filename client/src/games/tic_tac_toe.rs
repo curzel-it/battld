@@ -3,7 +3,6 @@ use crate::state::SessionState;
 use std::io::{self, Write};
 use tokio::io::AsyncBufReadExt;
 use colored::*;
-use crossterm::{event::{self, Event}, terminal};
 
 #[derive(Debug, Clone)]
 enum TicTacToeUiState {
@@ -201,7 +200,7 @@ pub async fn start_game(session: &mut SessionState, game_type: GameType) -> Resu
                                     println!("\n{}", "Match ended".yellow());
                                     println!("\nPress any key to return to main menu...");
                                     io::stdout().flush()?;
-                                    wait_for_keypress_after_game()?;
+                                    crate::ui::wait_for_keypress()?;
                                     return Ok(());
                                 }
                             };
@@ -241,7 +240,7 @@ pub async fn start_game(session: &mut SessionState, game_type: GameType) -> Resu
                             ui_state.render(my_number.unwrap_or(1));
                             println!("\nPress any key to return to main menu...");
                             io::stdout().flush()?;
-                            wait_for_keypress_after_game()?;
+                            crate::ui::wait_for_keypress()?;
                             return Ok(());
                         }
                         ServerMessage::MatchFound { match_data } | ServerMessage::GameStateUpdate { match_data } => {
@@ -279,7 +278,7 @@ pub async fn start_game(session: &mut SessionState, game_type: GameType) -> Resu
                                 ui_state.render(my_number.unwrap());
                                 println!("\nPress any key to return to main menu...");
                                 io::stdout().flush()?;
-                                wait_for_keypress_after_game()?;
+                                crate::ui::wait_for_keypress()?;
                                 return Ok(());
                             }
 
@@ -290,7 +289,7 @@ pub async fn start_game(session: &mut SessionState, game_type: GameType) -> Resu
                                 if game_state.current_player == my_number.unwrap() && !game_state.is_finished {
                                     // If transitioning from opponent's turn to my turn, drain stdin buffer
                                     if was_opponent_turn {
-                                        drain_stdin_buffer();
+                                        crate::ui::drain_stdin_buffer();
                                         input_line.clear();
                                     }
                                     ui_state = TicTacToeUiState::MyTurn(match_data.clone());
@@ -362,39 +361,5 @@ pub async fn start_game(session: &mut SessionState, game_type: GameType) -> Resu
 
 pub async fn resume_game(_session: &SessionState, _game_match: Match) -> Result<(), Box<dyn std::error::Error>> {
     println!("Resume game not implemented in simple message printer mode");
-    Ok(())
-}
-
-fn drain_stdin_buffer() {
-    // Use crossterm to drain any buffered input
-    let _ = terminal::enable_raw_mode();
-
-    // Drain all pending events
-    while let Ok(true) = event::poll(std::time::Duration::from_millis(0)) {
-        let _ = event::read();
-    }
-
-    let _ = terminal::disable_raw_mode();
-}
-
-fn wait_for_keypress_after_game() -> io::Result<()> {
-    // First, drain any pending events in the terminal buffer
-    terminal::enable_raw_mode()?;
-
-    // Clear any buffered input
-    while event::poll(std::time::Duration::from_millis(10))? {
-        event::read()?; // Consume and discard
-    }
-
-    // Now wait for an actual keypress
-    loop {
-        if event::poll(std::time::Duration::from_millis(100))? {
-            if let Event::Key(_) = event::read()? {
-                break;
-            }
-        }
-    }
-
-    terminal::disable_raw_mode()?;
     Ok(())
 }
