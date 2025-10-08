@@ -20,13 +20,15 @@ pub async fn start_game(session: &mut SessionState, game_type: GameType) -> Resu
         let messages = ws_client.get_messages().await;
 
         for msg in messages {
+            // Handle GameError by just printing it
+            if let ServerMessage::Error { message } = &msg {
+                println!("Error: {}", message);
+                io::stdout().flush()?;
+                continue;
+            }
+
             println!("Received: {:?}", msg);
             io::stdout().flush()?;
-
-            // Exit on errors
-            if let ServerMessage::Error { .. } = msg {
-                return Ok(());
-            }
         }
 
         tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
