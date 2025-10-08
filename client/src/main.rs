@@ -2,10 +2,9 @@ pub mod api;
 pub mod auth;
 pub mod config;
 pub mod leaderboard;
-pub mod rps;
+pub mod games;
 pub mod state;
 pub mod stats;
-pub mod tris;
 pub mod ui;
 pub mod utils;
 pub mod websocket;
@@ -209,7 +208,7 @@ async fn check_and_handle_resumable_match(session: &mut SessionState) -> Result<
                                 // Wait for GameStateUpdate and resume game
                                 println!("\n{}", "Resuming match...".cyan());
                                 let game_match = wait_for_game_state(ws_client).await?;
-                                tris::resume_game(session, game_match).await?;
+                                games::tic_tac_toe::resume_game(session, game_match).await?;
                                 return Ok(());
                             }
                             "n" | "no" => {
@@ -264,8 +263,8 @@ async fn start_game_flow(session: &mut SessionState, game_type: battld_common::G
 
     // Route to appropriate game module
     match game_type {
-        battld_common::GameType::TicTacToe => tris::start_game(session, game_type).await?,
-        battld_common::GameType::RockPaperScissors => rps::start_game(session, game_type).await?,
+        battld_common::GameType::TicTacToe => games::tic_tac_toe::start_game(session, game_type).await?,
+        battld_common::GameType::RockPaperScissors => games::rock_paper_scissors::start_game(session, game_type).await?,
     }
 
     Ok(())

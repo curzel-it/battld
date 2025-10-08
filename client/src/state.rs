@@ -1,5 +1,3 @@
-use tokio_tungstenite::tungstenite::handshake::server;
-
 use crate::config::*;
 use crate::websocket::WebSocketClient;
 use std::sync::Arc;
