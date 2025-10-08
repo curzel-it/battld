@@ -436,6 +436,20 @@ pub async fn start_game(session: &mut SessionState, game_type: GameType) -> Resu
                                         _ => (false, false),
                                     };
 
+                                    // Check if we're transitioning to a state where we can select
+                                    let was_waiting = matches!(
+                                        ui_state,
+                                        RockPaperScissorsUiState::SelectMove { you_selected: true, .. } |
+                                        RockPaperScissorsUiState::WaitingForOpponentToReconnect { .. } |
+                                        RockPaperScissorsUiState::WaitingForOpponentToJoin
+                                    );
+
+                                    // If we're now able to select but weren't before, drain buffered input
+                                    if !you_selected && was_waiting {
+                                        drain_stdin_buffer();
+                                        input_line.clear();
+                                    }
+
                                     // If opponent reconnected, clear the flag
                                     if opponent_disconnected {
                                         opponent_disconnected = false;
@@ -534,6 +548,18 @@ pub enum RPSMove {
 pub async fn resume_game(_session: &mut SessionState, _game_match: Match) -> Result<(), Box<dyn std::error::Error>> {
     println!("Resume game not implemented in simple message printer mode");
     Ok(())
+}
+
+fn drain_stdin_buffer() {
+    // Use crossterm to drain any buffered input
+    let _ = terminal::enable_raw_mode();
+
+    // Drain all pending events
+    while let Ok(true) = event::poll(std::time::Duration::from_millis(0)) {
+        let _ = event::read();
+    }
+
+    let _ = terminal::disable_raw_mode();
 }
 
 fn wait_for_keypress_after_game() -> io::Result<()> {

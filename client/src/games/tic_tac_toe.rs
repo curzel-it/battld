@@ -285,7 +285,14 @@ pub async fn start_game(session: &mut SessionState, game_type: GameType) -> Resu
 
                             // Parse game state to determine whose turn it is
                             if let Ok(game_state) = serde_json::from_value::<GameState>(match_data.game_state.clone()) {
+                                let was_opponent_turn = matches!(ui_state, TicTacToeUiState::OpponentTurn(_) | TicTacToeUiState::WaitingForOpponentToReconnect(_));
+
                                 if game_state.current_player == my_number.unwrap() && !game_state.is_finished {
+                                    // If transitioning from opponent's turn to my turn, drain stdin buffer
+                                    if was_opponent_turn {
+                                        drain_stdin_buffer();
+                                        input_line.clear();
+                                    }
                                     ui_state = TicTacToeUiState::MyTurn(match_data.clone());
                                 } else if opponent_disconnected {
                                     ui_state = TicTacToeUiState::WaitingForOpponentToReconnect(match_data.clone());
@@ -356,6 +363,18 @@ pub async fn start_game(session: &mut SessionState, game_type: GameType) -> Resu
 pub async fn resume_game(_session: &SessionState, _game_match: Match) -> Result<(), Box<dyn std::error::Error>> {
     println!("Resume game not implemented in simple message printer mode");
     Ok(())
+}
+
+fn drain_stdin_buffer() {
+    // Use crossterm to drain any buffered input
+    let _ = terminal::enable_raw_mode();
+
+    // Drain all pending events
+    while let Ok(true) = event::poll(std::time::Duration::from_millis(0)) {
+        let _ = event::read();
+    }
+
+    let _ = terminal::disable_raw_mode();
 }
 
 fn wait_for_keypress_after_game() -> io::Result<()> {
