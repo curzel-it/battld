@@ -168,6 +168,7 @@ pub enum RPSMove {
     Rock,
     Paper,
     Scissors,
+    Redacted,
 }
 
 pub async fn resume_game(_session: &mut SessionState, _game_match: Match) -> Result<(), Box<dyn std::error::Error>> {

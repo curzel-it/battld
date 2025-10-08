@@ -11,6 +11,7 @@ pub enum RPSMove {
     Rock,
     Paper,
     Scissors,
+    Redacted,
 }
 
 impl RPSMove {
@@ -90,6 +91,42 @@ impl RPSGameState {
             Some(2)
         } else {
             None
+        }
+    }
+
+    /// Redact opponent's moves for a specific player
+    /// Player 1 sees their own moves but player 2's moves are redacted (and vice versa)
+    pub fn redact_for_player(&self, player: PlayerSymbol) -> Self {
+        let redacted_rounds = self.rounds.iter().map(|(p1_move, p2_move)| {
+            match player {
+                1 => {
+                    // Player 1 sees their own moves, but player 2's moves are redacted if incomplete
+                    let redacted_p2 = if p1_move.is_some() && p2_move.is_some() {
+                        *p2_move // Both moves in, show actual move
+                    } else if p2_move.is_some() {
+                        Some(RPSMove::Redacted) // Only p2 moved, hide it
+                    } else {
+                        None // p2 hasn't moved yet
+                    };
+                    (*p1_move, redacted_p2)
+                }
+                2 => {
+                    // Player 2 sees their own moves, but player 1's moves are redacted if incomplete
+                    let redacted_p1 = if p1_move.is_some() && p2_move.is_some() {
+                        *p1_move // Both moves in, show actual move
+                    } else if p1_move.is_some() {
+                        Some(RPSMove::Redacted) // Only p1 moved, hide it
+                    } else {
+                        None // p1 hasn't moved yet
+                    };
+                    (redacted_p1, *p2_move)
+                }
+                _ => (*p1_move, *p2_move), // Invalid player, return as-is
+            }
+        }).collect();
+
+        Self {
+            rounds: redacted_rounds,
         }
     }
 
@@ -401,5 +438,67 @@ mod tests {
         assert_eq!(state.get_score(), (2, 0));
         assert!(state.is_finished());
         assert_eq!(state.get_winner(), Some(1));
+    }
+
+    #[test]
+    fn test_redact_for_player1() {
+        let mut state = RPSGameState::new();
+
+        // Round 1: Both players moved (completed round)
+        state.rounds[0] = (Some(RPSMove::Rock), Some(RPSMove::Paper));
+
+        // Round 2: Player 1 moved, player 2 hasn't
+        state.rounds.push((Some(RPSMove::Scissors), None));
+
+        // Round 3: Player 2 moved, player 1 hasn't
+        state.rounds.push((None, Some(RPSMove::Rock)));
+
+        // Round 4: No one moved yet
+        state.rounds.push((None, None));
+
+        let redacted = state.redact_for_player(1);
+
+        // Round 1: Both moved, so both should be visible
+        assert_eq!(redacted.rounds[0], (Some(RPSMove::Rock), Some(RPSMove::Paper)));
+
+        // Round 2: Player 1 moved but player 2 hasn't, p1 sees their move
+        assert_eq!(redacted.rounds[1], (Some(RPSMove::Scissors), None));
+
+        // Round 3: Player 2 moved but player 1 hasn't, p2's move should be redacted
+        assert_eq!(redacted.rounds[2], (None, Some(RPSMove::Redacted)));
+
+        // Round 4: No one moved, both None
+        assert_eq!(redacted.rounds[3], (None, None));
+    }
+
+    #[test]
+    fn test_redact_for_player2() {
+        let mut state = RPSGameState::new();
+
+        // Round 1: Both players moved (completed round)
+        state.rounds[0] = (Some(RPSMove::Rock), Some(RPSMove::Paper));
+
+        // Round 2: Player 1 moved, player 2 hasn't
+        state.rounds.push((Some(RPSMove::Scissors), None));
+
+        // Round 3: Player 2 moved, player 1 hasn't
+        state.rounds.push((None, Some(RPSMove::Rock)));
+
+        // Round 4: No one moved yet
+        state.rounds.push((None, None));
+
+        let redacted = state.redact_for_player(2);
+
+        // Round 1: Both moved, so both should be visible
+        assert_eq!(redacted.rounds[0], (Some(RPSMove::Rock), Some(RPSMove::Paper)));
+
+        // Round 2: Player 1 moved but player 2 hasn't, p1's move should be redacted
+        assert_eq!(redacted.rounds[1], (Some(RPSMove::Redacted), None));
+
+        // Round 3: Player 2 moved but player 1 hasn't, p2 sees their move
+        assert_eq!(redacted.rounds[2], (None, Some(RPSMove::Rock)));
+
+        // Round 4: No one moved, both None
+        assert_eq!(redacted.rounds[3], (None, None));
     }
 }

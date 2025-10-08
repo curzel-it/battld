@@ -1,4 +1,4 @@
-use battld_common::{GameType, MatchOutcome, MatchEndReason, ServerMessage};
+use battld_common::{GameType, MatchOutcome, MatchEndReason, ServerMessage, Match};
 use crate::database::Database;
 use crate::game_router;
 use crate::games::tic_tac_toe::TicTacToeGameState;
@@ -9,6 +9,49 @@ use crate::games::rock_paper_scissors::RPSGameState;
 pub struct OutgoingMessage {
     pub player_id: i64,
     pub message: ServerMessage,
+}
+
+/// Redact opponent's moves in RPS game state for a specific player
+fn redact_match_for_player(match_data: &Match, player_id: i64) -> Match {
+    // Only redact for RPS games
+    if match_data.game_type != GameType::RockPaperScissors {
+        return match_data.clone();
+    }
+
+    // Deserialize the RPS game state
+    let rps_state: RPSGameState = match serde_json::from_value(match_data.game_state.clone()) {
+        Ok(state) => state,
+        Err(_) => return match_data.clone(), // If deserialization fails, return as-is
+    };
+
+    // Determine which player number this is (1 or 2)
+    let player_num = if player_id == match_data.player1_id {
+        1
+    } else if player_id == match_data.player2_id {
+        2
+    } else {
+        return match_data.clone(); // Not a player in this match
+    };
+
+    // Redact the state for this player
+    let redacted_state = rps_state.redact_for_player(player_num);
+
+    // Serialize back to JSON
+    let redacted_json = match serde_json::to_value(&redacted_state) {
+        Ok(json) => json,
+        Err(_) => return match_data.clone(),
+    };
+
+    // Create a new Match with redacted game state
+    Match {
+        id: match_data.id,
+        player1_id: match_data.player1_id,
+        player2_id: match_data.player2_id,
+        in_progress: match_data.in_progress,
+        outcome: match_data.outcome.clone(),
+        game_type: match_data.game_type.clone(),
+        game_state: redacted_json,
+    }
 }
 
 /// Handle resume match request - returns messages to send
@@ -76,13 +119,13 @@ pub async fn handle_resume_match_logic(
         OutgoingMessage {
             player_id,
             message: ServerMessage::GameStateUpdate {
-                match_data: match_info.clone(),
+                match_data: redact_match_for_player(&match_info, player_id),
             },
         },
         OutgoingMessage {
             player_id: opponent_id,
             message: ServerMessage::GameStateUpdate {
-                match_data: match_info,
+                match_data: redact_match_for_player(&match_info, opponent_id),
             },
         },
     ]
@@ -103,7 +146,7 @@ pub async fn handle_join_matchmaking_logic(
             return vec![OutgoingMessage {
                 player_id,
                 message: ServerMessage::GameStateUpdate {
-                    match_data: match_info,
+                    match_data: redact_match_for_player(&match_info, player_id),
                 },
             }];
         }
@@ -146,13 +189,13 @@ pub async fn handle_join_matchmaking_logic(
                         OutgoingMessage {
                             player_id: p1_id,
                             message: ServerMessage::MatchFound {
-                                match_data: match_info.clone(),
+                                match_data: redact_match_for_player(&match_info, p1_id),
                             },
                         },
                         OutgoingMessage {
                             player_id: p2_id,
                             message: ServerMessage::MatchFound {
-                                match_data: match_info,
+                                match_data: redact_match_for_player(&match_info, p2_id),
                             },
                         },
                     ];
@@ -259,13 +302,13 @@ pub async fn handle_make_move_logic(
             OutgoingMessage {
                 player_id: game_match.player1_id,
                 message: ServerMessage::GameStateUpdate {
-                    match_data: game_match.clone(),
+                    match_data: redact_match_for_player(&game_match, game_match.player1_id),
                 },
             },
             OutgoingMessage {
                 player_id: game_match.player2_id,
                 message: ServerMessage::GameStateUpdate {
-                    match_data: game_match.clone(),
+                    match_data: redact_match_for_player(&game_match, game_match.player2_id),
                 },
             },
         ];
