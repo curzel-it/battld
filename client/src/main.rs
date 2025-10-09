@@ -236,12 +236,7 @@ async fn wait_for_game_state(ws_client: &crate::websocket::WebSocketClient) -> R
 async fn start_game_flow(session: &mut SessionState, game_type: GameType) -> Result<(), Box<dyn std::error::Error>> {
     clear_screen()?;
 
-    let game_name = match game_type {
-        GameType::TicTacToe => "Tic-Tac-Toe",
-        GameType::RockPaperScissors => "Rock-Paper-Scissors",
-    };
-
-    println!("\n{}", format!("Starting {game_name} matchmaking...").cyan());
+    println!("\n{}", format!("Starting {game_type} matchmaking...").cyan());
     println!("{}", "Waiting for opponent...".dimmed());
 
     // Route to appropriate game module

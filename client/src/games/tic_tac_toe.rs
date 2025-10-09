@@ -271,6 +271,27 @@ fn handle_user_input(
         return Ok(None);
     };
 
+    // Validate bounds
+    if row >= 3 || col >= 3 {
+        println!("{}", "Invalid move. Row and column must be between 0 and 2.".red());
+        print!("  > ");
+        io::stdout().flush()?;
+        return Ok(None);
+    }
+
+    // Validate cell is not already occupied
+    if let TicTacToeUiState::MyTurn(match_data) = ui_state {
+        if let Ok(game_state) = serde_json::from_value::<GameState>(match_data.game_state.clone()) {
+            let index = row * 3 + col;
+            if game_state.board[index] != 0 {
+                println!("{}", "Invalid move. That cell is already occupied.".red());
+                print!("  > ");
+                io::stdout().flush()?;
+                return Ok(None);
+            }
+        }
+    }
+
     let move_data = serde_json::json!({
         "row": row,
         "col": col
