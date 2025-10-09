@@ -16,7 +16,7 @@ impl Default for Config {
         let _ = dotenvy::dotenv();
 
         let server_url = std::env::var("SERVER_URL")
-            .unwrap_or_else(|_| "http://127.0.0.1:3000".to_string());
+            .unwrap_or_else(|_| "https://battld.curzel.it".to_string());
 
         Config {
             player_id: None,

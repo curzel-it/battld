@@ -189,45 +189,14 @@ async fn check_and_handle_resumable_match(session: &mut SessionState) -> Result<
             println!("{}", format!("Match ID: {}", match_data.id).dimmed());
             println!("{}", format!("Opponent: Player {}", if match_data.player1_id == session.player_id.unwrap() { match_data.player2_id } else { match_data.player1_id }).dimmed());
             println!();
-            println!("{}", "Do you want to resume? (y/n)".cyan());
-            print!("> ");
-            io::stdout().flush()?;
 
-            let mut rl = DefaultEditor::new().map_err(io::Error::other)?;
+            // Automatically resume
+            ws_client.send(ClientMessage::ResumeMatch)?;
 
-            loop {
-                let readline = rl.readline("> ");
-                match readline {
-                    Ok(line) => {
-                        let choice = line.trim().to_lowercase();
-                        match choice.as_str() {
-                            "y" | "yes" => {
-                                // Send ResumeMatch
-                                ws_client.send(ClientMessage::ResumeMatch)?;
-
-                                // Wait for GameStateUpdate and resume game
-                                println!("\n{}", "Resuming match...".cyan());
-                                let game_match = wait_for_game_state(ws_client).await?;
-                                games::tic_tac_toe::resume_game(session, game_match).await?;
-                                return Ok(());
-                            }
-                            "n" | "no" => {
-                                println!("\n{}", "Match declined. You will be disconnected from it.".yellow());
-                                println!("{}", "Press any key to continue...".dimmed());
-                                wait_for_keypress()?;
-                                return Ok(());
-                            }
-                            _ => {
-                                println!("{}", "Invalid choice. Please enter 'y' or 'n'.".red());
-                                continue;
-                            }
-                        }
-                    }
-                    Err(_) => {
-                        return Ok(());
-                    }
-                }
-            }
+            println!("{}", "Resuming match...".cyan());
+            let game_match = wait_for_game_state(ws_client).await?;
+            games::tic_tac_toe::resume_game(session, game_match).await?;
+            return Ok(());
         }
     }
 
