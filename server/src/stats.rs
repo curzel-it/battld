@@ -18,7 +18,7 @@ pub async fn get_stats(
     headers: HeaderMap,
     Query(params): Query<StatsQuery>,
 ) -> Result<Json<PlayerStats>, StatusCode> {
-    let authenticated_player_id = auth::authenticate_request(&state.db, &headers).await?;
+    let authenticated_player_id = auth::authenticate_request(&state.session_cache, &headers).await?;
     let target_player_id = params.player.unwrap_or(authenticated_player_id);
 
     let db = &state.db;
@@ -105,7 +105,7 @@ pub async fn get_leaderboard(
     headers: HeaderMap,
     Query(params): Query<LeaderboardQuery>,
 ) -> Result<Json<LeaderboardResponse>, StatusCode> {
-    let _player_id = auth::authenticate_request(&state.db, &headers).await?;
+    let _player_id = auth::authenticate_request(&state.session_cache, &headers).await?;
     let db = &state.db;
 
     let limit = params.limit.unwrap_or(10).clamp(1, 100);

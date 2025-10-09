@@ -10,15 +10,18 @@ use std::{sync::Arc, path::PathBuf, net::SocketAddr};
 use tower_http::services::ServeDir;
 
 mod auth;
+mod auth_endpoints;
 mod database;
 mod game_logic;
 mod game_router;
 mod games;
 mod log_requests;
+mod nonce_cache;
 mod players;
 mod rate_limit;
 mod repository;
 mod server_init;
+mod session_cache;
 mod stats;
 mod websocket;
 
@@ -32,6 +35,8 @@ const DATABASE_URL: &str = "sqlite://game.db";
 pub struct AppState {
     pub db: Arc<Database>,
     pub registry: Arc<ConnectionRegistry>,
+    pub nonce_cache: Arc<nonce_cache::NonceCache>,
+    pub session_cache: Arc<session_cache::SessionCache>,
 }
 
 async fn serve_index() -> Html<&'static str> {
@@ -92,15 +97,44 @@ async fn main() {
         server_init::seed_users(db.pool()).await.expect("Failed to seed users");
     }
 
+    // Initialize caches
+    let nonce_cache = Arc::new(nonce_cache::NonceCache::new());
+    let session_cache = Arc::new(session_cache::SessionCache::new());
+
+    // Start cleanup tasks for expired nonces (every 60s)
+    let nonce_cache_clone = nonce_cache.clone();
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+            nonce_cache_clone.cleanup_expired().await;
+        }
+    });
+
+    // Start cleanup tasks for expired sessions (every hour)
+    let session_cache_clone = session_cache.clone();
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(3600)).await;
+            session_cache_clone.cleanup_expired().await;
+        }
+    });
+
     let state = AppState {
         db: Arc::new(db),
         registry: Arc::new(ConnectionRegistry::new()),
+        nonce_cache,
+        session_cache,
     };
 
     let static_dir = std::env::var("STATIC_DIR").unwrap_or_else(|_| "static".to_string());
 
     // Create rate-limited API routes
     let api_routes = Router::new()
+        // New auth endpoints
+        .route("/auth/challenge", post(auth_endpoints::request_challenge))
+        .route("/auth/verify", post(auth_endpoints::verify_challenge))
+        .route("/auth/logout", post(auth_endpoints::logout))
+        // Existing endpoints
         .route("/player", post(auth::create_player))
         .route("/player", get(players::get_player))
         .route("/player/current", get(players::post_player))

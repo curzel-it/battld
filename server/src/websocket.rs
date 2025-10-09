@@ -141,11 +141,16 @@ pub async fn ws_handler(
     ws: WebSocketUpgrade,
     State(state): State<AppState>,
 ) -> Response {
-    ws.on_upgrade(move |socket| handle_socket(socket, state.db, state.registry))
+    ws.on_upgrade(move |socket| handle_socket(socket, state.db, state.registry, state.session_cache))
 }
 
 /// Handle a single WebSocket connection
-async fn handle_socket(socket: WebSocket, db: Arc<Database>, registry: SharedRegistry) {
+async fn handle_socket(
+    socket: WebSocket,
+    db: Arc<Database>,
+    registry: SharedRegistry,
+    session_cache: Arc<crate::session_cache::SessionCache>,
+) {
     let (mut sender, mut receiver) = socket.split();
 
     // Channel to send messages to this client
@@ -177,8 +182,8 @@ async fn handle_socket(socket: WebSocket, db: Arc<Database>, registry: SharedReg
                     println!("[WS RECV] {client_msg:?}");
                     match client_msg {
                         ClientMessage::Authenticate { token } => {
-                            // Authenticate the connection
-                            match authenticate_token(&db, &token).await {
+                            // Authenticate the connection using session token
+                            match authenticate_token(&session_cache, &token).await {
                                 Ok(pid) => {
                                     player_id = Some(pid);
                                     registry.register(pid, tx.clone(), send_task.abort_handle()).await;
@@ -255,8 +260,22 @@ async fn handle_socket(socket: WebSocket, db: Arc<Database>, registry: SharedReg
     send_task.abort();
 }
 
-/// Authenticate a token and return player_id
-async fn authenticate_token(db: &Database, token: &str) -> Result<i64, String> {
+/// Authenticate a session token and return player_id
+async fn authenticate_token(
+    session_cache: &crate::session_cache::SessionCache,
+    token: &str,
+) -> Result<i64, String> {
+    // Token is now a session token (not "player_id:signature")
+    session_cache
+        .verify_session(token)
+        .await
+        .map_err(|e| format!("Invalid session: {}", e))
+}
+
+/// DEPRECATED: Legacy authentication for backward compatibility
+#[deprecated(note = "Use session token authentication via authenticate_token instead")]
+#[allow(dead_code)]
+async fn authenticate_token_legacy(db: &Database, token: &str) -> Result<i64, String> {
     // Token format: "player_id:signature"
     let parts: Vec<&str> = token.split(':').collect();
     if parts.len() != 2 {

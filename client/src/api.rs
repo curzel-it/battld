@@ -6,6 +6,7 @@ pub mod auth {
     use std::fs;
 
     use battld_common::{HEADER_AUTH, HEADER_PLAYER_ID};
+    use battld_common::api::{ChallengeRequest, ChallengeResponse, VerifyRequest, AuthResponse};
 
     pub async fn create_player(server_url: &str, name: &str, public_key_path: &str) -> std::result::Result<battld_common::Player, Box<dyn std::error::Error>> {
         let public_key_pem = fs::read_to_string(public_key_path)?;
@@ -32,6 +33,64 @@ pub mod auth {
         Ok(player)
     }
 
+    // NEW AUTH FLOW: Request challenge
+    pub async fn request_challenge(
+        server_url: &str,
+        player_id: i64,
+        public_key_hint: &str,
+    ) -> std::result::Result<ChallengeResponse, Box<dyn std::error::Error>> {
+        let client = reqwest::Client::new();
+        let url = format!("{server_url}/auth/challenge");
+
+        let request = ChallengeRequest {
+            player_id,
+            public_key_hint: public_key_hint.to_string(),
+        };
+
+        let response = client
+            .post(&url)
+            .json(&request)
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            return Err(format!("Challenge request failed: {}", response.status()).into());
+        }
+
+        Ok(response.json().await?)
+    }
+
+    // NEW AUTH FLOW: Verify challenge and get session token
+    pub async fn verify_challenge(
+        server_url: &str,
+        player_id: i64,
+        nonce: &str,
+        signature: &str,
+    ) -> std::result::Result<AuthResponse, Box<dyn std::error::Error>> {
+        let client = reqwest::Client::new();
+        let url = format!("{server_url}/auth/verify");
+
+        let request = VerifyRequest {
+            player_id,
+            nonce: nonce.to_string(),
+            signature: signature.to_string(),
+        };
+
+        let response = client
+            .post(&url)
+            .json(&request)
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            return Err(format!("Verification failed: {}", response.status()).into());
+        }
+
+        Ok(response.json().await?)
+    }
+
+    // DEPRECATED: Legacy test authentication
+    #[deprecated(note = "Use new 2-step auth flow (request_challenge + verify_challenge) instead")]
     pub async fn test_authentication(server_url: &str, player_id: i64, token: &str) -> std::result::Result<battld_common::Player, Box<dyn std::error::Error>> {
         let client = reqwest::Client::new();
         let url = format!("{server_url}/player");

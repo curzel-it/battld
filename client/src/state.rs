@@ -37,11 +37,10 @@ impl SessionState {
 
     pub async fn connect_websocket(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         if let Some(token) = &self.auth_token {
-            let player_id = self.player_id.ok_or("No player ID")?;
             let server_url = self.config.server_url.as_ref().ok_or("No server URL configured")?;
             let ws_url = format!("{}/ws", server_url.replace("http", "ws"));
-            let ws_token = format!("{player_id}:{token}");
-            let client = WebSocketClient::connect(&ws_url, ws_token).await?;
+            // Use session token directly (not player_id:signature format)
+            let client = WebSocketClient::connect(&ws_url, token.clone()).await?;
             self.ws_client = Some(Arc::new(client));
             Ok(())
         } else {
