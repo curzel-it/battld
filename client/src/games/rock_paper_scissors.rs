@@ -29,6 +29,21 @@ enum RockPaperScissorsUiState {
     MatchEndedOpponentDisconnected(Match),
 }
 
+/// Game state for Rock-Paper-Scissors
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct RPSGameState {
+    pub rounds: Vec<(Option<RPSMove>, Option<RPSMove>)>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum RPSMove {
+    Rock,
+    Paper,
+    Scissors,
+    Redacted,
+}
+
 impl RockPaperScissorsUiState {
     fn render(&self, my_player_number: i32) {
         crate::ui::clear_screen().ok();
@@ -659,21 +674,6 @@ pub async fn start_game(session: &mut SessionState, game_type: GameType) -> Resu
         RockPaperScissorsUiState::WaitingForOpponentToJoin,
         None,
     ).await
-}
-
-/// Game state for Rock-Paper-Scissors
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct RPSGameState {
-    pub rounds: Vec<(Option<RPSMove>, Option<RPSMove>)>,
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum RPSMove {
-    Rock,
-    Paper,
-    Scissors,
-    Redacted,
 }
 
 pub async fn resume_game(session: &mut SessionState, game_match: Match) -> Result<(), Box<dyn std::error::Error>> {
