@@ -17,6 +17,12 @@ struct NonceInfo {
     used: bool,
 }
 
+impl Default for NonceCache {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl NonceCache {
     pub fn new() -> Self {
         Self {
@@ -80,7 +86,7 @@ fn generate_secure_random_string(len: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tokio::time::sleep;
+    
 
     #[tokio::test]
     async fn test_nonce_single_use() {

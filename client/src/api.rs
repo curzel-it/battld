@@ -5,7 +5,7 @@ pub mod auth {
     use std::path::Path;
     use std::fs;
 
-    use battld_common::HEADER_AUTH;
+    
     use battld_common::api::{ChallengeRequest, ChallengeResponse, VerifyRequest, AuthResponse};
 
     pub async fn create_player(server_url: &str, name: &str, public_key_path: &str) -> std::result::Result<battld_common::Player, Box<dyn std::error::Error>> {

@@ -266,7 +266,7 @@ async fn authenticate_token(
     session_cache
         .verify_session(token)
         .await
-        .map_err(|e| format!("Invalid session: {}", e))
+        .map_err(|e| format!("Invalid session: {e}"))
 }
 
 /// Handle resume match request

@@ -34,7 +34,7 @@ pub async fn verify_challenge(
         .verify_and_consume(&request.nonce, request.player_id)
         .await
         .map_err(|e| {
-            println!("Nonce verification failed: {}", e);
+            println!("Nonce verification failed: {e}");
             StatusCode::UNAUTHORIZED
         })?;
 

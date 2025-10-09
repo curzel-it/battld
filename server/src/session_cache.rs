@@ -17,6 +17,12 @@ pub struct SessionToken {
     pub expires_at: SystemTime,
 }
 
+impl Default for SessionCache {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SessionCache {
     pub fn new() -> Self {
         Self {
@@ -85,7 +91,7 @@ impl SessionCache {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tokio::time::sleep;
+    
 
     #[tokio::test]
     async fn test_create_and_verify_session() {
