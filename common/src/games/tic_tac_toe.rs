@@ -1,10 +1,10 @@
 use serde::{Deserialize, Serialize};
 
-/// Represents the state of a single cell in the tris board
+/// Represents the state of a single cell in the tic-tac-toe board
 /// 0 = empty, 1 = player1, 2 = player2
 pub type CellState = i32;
 
-/// Represents the 3x3 tris game board as a flat array of 9 cells
+/// Represents the 3x3 tic-tac-toe game board as a flat array of 9 cells
 /// Index mapping: [0,1,2,3,4,5,6,7,8]
 /// Visual layout:
 /// ```text

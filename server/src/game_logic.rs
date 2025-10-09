@@ -108,13 +108,13 @@ pub async fn handle_join_matchmaking_logic(
         return vec![];
     }
 
-    let game_type_str = game_type.to_string();
+    let game_type_json = serde_json::to_string(&game_type).unwrap();
 
     // Try to find a waiting opponent
-    if let Some(waiting_match) = db.find_waiting_match(player_id, &game_type_str).await {
+    if let Some(waiting_match) = db.find_waiting_match(player_id, &game_type_json).await {
         let p1_id = waiting_match.player1_id;
         let p2_id = player_id;
-        println!("Matching player {player_id} with waiting player {p1_id} for game type: {game_type_str}");
+        println!("Matching player {player_id} with waiting player {p1_id} for game type: {game_type}");
 
         // Initialize game state based on game type
         let game_state_json = game_router::initialize_game_state(&game_type);
@@ -143,8 +143,8 @@ pub async fn handle_join_matchmaking_logic(
         }
     } else {
         // No opponent found, create a waiting match
-        if (db.create_waiting_match(player_id, &game_type_str).await).is_ok() {
-            println!("Player {player_id} created waiting match for game type: {game_type_str}");
+        if (db.create_waiting_match(player_id, &game_type_json).await).is_ok() {
+            println!("Player {player_id} created waiting match for game type: {game_type}");
             return vec![OutgoingMessage {
                 player_id,
                 message: ServerMessage::WaitingForOpponent,
@@ -210,7 +210,7 @@ pub async fn handle_make_move_logic(
     };
 
     let in_progress = !move_result.is_finished;
-    let outcome_str = move_result.outcome.as_ref().map(|o| o.to_string());
+    let outcome_json = move_result.outcome.as_ref().map(|o| serde_json::to_string(o).unwrap());
 
     // Serialize state to string for database
     let new_state_str = serde_json::to_string(&move_result.new_state).unwrap();
@@ -220,7 +220,7 @@ pub async fn handle_make_move_logic(
         game_match.id,
         &new_state_str,
         in_progress,
-        outcome_str.as_deref(),
+        outcome_json.as_deref(),
     ).await).is_ok() {
         // Update match struct with new values
         game_match.game_state = move_result.new_state;
@@ -351,11 +351,12 @@ pub async fn handle_disconnect_timeout_logic(
 
     // Mark match as draw due to disconnect timeout
     let game_state_str = serde_json::to_string(&game_match.game_state).unwrap();
+    let outcome_json = serde_json::to_string(&MatchOutcome::Draw).unwrap();
     let _ = db.update_match(
         game_match.id,
         &game_state_str,
         false, // not in progress
-        Some(&MatchOutcome::Draw.to_string()),
+        Some(&outcome_json),
     ).await;
 
     println!("Player {player_id} failed to reconnect to match {match_id} within 10s - ending match");
@@ -422,7 +423,8 @@ mod tests {
         // Create a match where player 1 goes first
         let game_state = TicTacToeGameState::new();
         let game_state_json = serde_json::to_string(&game_state).unwrap();
-        let _match_id = db.create_match(p1, p2, &game_state_json, "tris").await.unwrap();
+        let game_type_json = serde_json::to_string(&GameType::TicTacToe).unwrap();
+        let _match_id = db.create_match(p1, p2, &game_state_json, &game_type_json).await.unwrap();
 
         // Try to make a move as player 2 (not their turn)
         let move_data = serde_json::json!({"row": 0, "col": 0});
@@ -449,7 +451,7 @@ mod tests {
         // Create a match where player 1 goes first
         let game_state = TicTacToeGameState::new();
         let game_state_json = serde_json::to_string(&game_state).unwrap();
-        let match_id = db.create_match(p1, p2, &game_state_json, "tris").await.unwrap();
+        let match_id = db.create_match(p1, p2, &game_state_json, &serde_json::to_string(&GameType::TicTacToe).unwrap()).await.unwrap();
 
         // Make a valid move as player 1
         let move_data = serde_json::json!({"row": 0, "col": 0});
@@ -496,7 +498,7 @@ mod tests {
         // Now player 1 can win by playing [0,2]
 
         let game_state_json = serde_json::to_string(&game_state).unwrap();
-        let match_id = db.create_match(p1, p2, &game_state_json, "tris").await.unwrap();
+        let match_id = db.create_match(p1, p2, &game_state_json, &serde_json::to_string(&GameType::TicTacToe).unwrap()).await.unwrap();
 
         // Make the winning move as player 1
         let move_data = serde_json::json!({"row": 0, "col": 2});
@@ -539,7 +541,7 @@ mod tests {
         // Create an active match
         let game_state = TicTacToeGameState::new();
         let game_state_json = serde_json::to_string(&game_state).unwrap();
-        let match_id = db.create_match(p1, p2, &game_state_json, "tris").await.unwrap();
+        let match_id = db.create_match(p1, p2, &game_state_json, &serde_json::to_string(&GameType::TicTacToe).unwrap()).await.unwrap();
 
         // Player 1 disconnects
         let (messages, match_id_opt) = handle_disconnect_logic(p1, &db).await;
@@ -568,7 +570,7 @@ mod tests {
         // Create an active match
         let game_state = TicTacToeGameState::new();
         let game_state_json = serde_json::to_string(&game_state).unwrap();
-        let match_id = db.create_match(p1, p2, &game_state_json, "tris").await.unwrap();
+        let match_id = db.create_match(p1, p2, &game_state_json, &serde_json::to_string(&GameType::TicTacToe).unwrap()).await.unwrap();
 
         // Timeout occurs
         let messages = handle_disconnect_timeout_logic(p1, match_id, &db).await;
@@ -582,10 +584,11 @@ mod tests {
             _ => panic!("Expected MatchEnded message"),
         }
 
-        // Match should be marked as draw (lowercase in DB)
+        // Match should be marked as draw (JSON serialized in DB)
         let match_record = db.get_match_by_id(match_id).await.unwrap();
         assert_eq!(match_record.in_progress, 0);
-        assert_eq!(match_record.outcome.as_deref(), Some("draw"));
+        let expected_outcome = serde_json::to_string(&MatchOutcome::Draw).unwrap();
+        assert_eq!(match_record.outcome.as_deref(), Some(expected_outcome.as_str()));
     }
 
     #[tokio::test]

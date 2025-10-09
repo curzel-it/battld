@@ -2,7 +2,6 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use crate::games::game_type::GameType;
 
-/// Represents a tris match
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Match {
     pub id: i64,
@@ -38,17 +37,6 @@ impl fmt::Display for MatchOutcome {
             MatchOutcome::Player1Win => write!(f, "p1_win"),
             MatchOutcome::Player2Win => write!(f, "p2_win"),
             MatchOutcome::Draw => write!(f, "draw"),
-        }
-    }
-}
-
-impl MatchOutcome {
-    pub fn from_string(s: &str) -> Option<Self> {
-        match s {
-            "p1_win" => Some(MatchOutcome::Player1Win),
-            "p2_win" => Some(MatchOutcome::Player2Win),
-            "draw" => Some(MatchOutcome::Draw),
-            _ => None,
         }
     }
 }

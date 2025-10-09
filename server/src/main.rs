@@ -76,7 +76,7 @@ fn parse_server_addrs() -> (String, String) {
 
 #[tokio::main]
 async fn main() {
-    println!("Tris Server starting...");
+    println!("Battld Server starting...");
 
     dotenvy::dotenv().ok();
 
