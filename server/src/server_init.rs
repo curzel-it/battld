@@ -1,6 +1,5 @@
 use battld_common::games::game_type::GameType;
 use battld_common::games::matches::MatchOutcome;
-use serde::Serialize;
 use sqlx::SqlitePool;
 use rand::Rng;
 
@@ -153,7 +152,7 @@ pub async fn seed_users(pool: &SqlitePool) -> Result<(), Box<dyn std::error::Err
         let player1_id = player_ids[player1_idx];
         let player2_id = player_ids[player2_idx];
 
-        let (game_state, outcome, current_player) = generate_random_completed_game();
+        let (game_state, outcome, _) = generate_random_completed_game();
 
         sqlx::query(
             "INSERT INTO matches (player1_id, player2_id, in_progress, outcome, game_type, game_state)
@@ -162,7 +161,7 @@ pub async fn seed_users(pool: &SqlitePool) -> Result<(), Box<dyn std::error::Err
         .bind(player1_id)
         .bind(player2_id)
         .bind(&outcome)
-        .bind(&serde_json::to_string(&GameType::TicTacToe).unwrap())
+        .bind(serde_json::to_string(&GameType::TicTacToe).unwrap())
         .bind(&game_state)
         .execute(pool)
         .await?;
