@@ -195,7 +195,17 @@ async fn check_and_handle_resumable_match(session: &mut SessionState) -> Result<
 
             println!("{}", "Resuming match...".cyan());
             let game_match = wait_for_game_state(ws_client).await?;
-            games::tic_tac_toe::resume_game(session, game_match).await?;
+
+            // Route to correct game based on game_type
+            match game_match.game_type {
+                GameType::TicTacToe => {
+                    games::tic_tac_toe::resume_game(session, game_match).await?;
+                }
+                GameType::RockPaperScissors => {
+                    games::rock_paper_scissors::resume_game(session, game_match).await?;
+                }
+            }
+
             return Ok(());
         }
     }

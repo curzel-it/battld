@@ -544,7 +544,294 @@ pub enum RPSMove {
     Redacted,
 }
 
-pub async fn resume_game(_session: &mut SessionState, _game_match: Match) -> Result<(), Box<dyn std::error::Error>> {
-    println!("Resume game not implemented in simple message printer mode");
-    Ok(())
+pub async fn resume_game(session: &mut SessionState, game_match: Match) -> Result<(), Box<dyn std::error::Error>> {
+    // Ensure WebSocket connection
+    if session.ws_client.is_none() {
+        session.connect_websocket().await?;
+    }
+
+    let ws_client = session.ws_client.as_ref().unwrap();
+    let my_player_id = session.player_id.ok_or("No player ID in session")?;
+
+    // Determine my player number
+    let my_number = if game_match.player1_id == my_player_id {
+        Some(1)
+    } else {
+        Some(2)
+    };
+
+    // Reconstruct previous rounds from match state
+    let mut previous_rounds = Vec::new();
+    if let Ok(game_state) = serde_json::from_value::<RPSGameState>(game_match.game_state.clone()) {
+        for (p1, p2) in &game_state.rounds {
+            if p1.is_some() && p2.is_some() {
+                previous_rounds.push(RoundResult {
+                    player1_move: p1.clone(),
+                    player2_move: p2.clone(),
+                });
+            }
+        }
+    }
+
+    // Start in SelectMove state
+    let mut ui_state = RockPaperScissorsUiState::SelectMove {
+        match_data: game_match,
+        previous_rounds,
+        opponent_selected: false,
+        you_selected: false,
+    };
+
+    let mut stdin_reader = tokio::io::BufReader::new(tokio::io::stdin());
+    let mut input_line = String::new();
+    let mut opponent_disconnected = false;
+
+    // Initial render
+    ui_state.render(my_number.unwrap_or(1));
+
+    // Main game loop (same as start_game)
+    loop {
+        let waiting_for_input = matches!(
+            ui_state,
+            RockPaperScissorsUiState::SelectMove { you_selected: false, .. }
+        );
+
+        tokio::select! {
+            // Poll for incoming WebSocket messages
+            _ = tokio::time::sleep(tokio::time::Duration::from_millis(200)) => {
+                let messages = ws_client.get_messages().await;
+
+                for msg in messages {
+                    // Handle errors
+                    if let ServerMessage::Error { message } = &msg {
+                        println!("\n{}", format!("Error: {}", message).red());
+                        io::stdout().flush()?;
+                        continue;
+                    }
+
+                    // Update state based on message
+                    match &msg {
+                        ServerMessage::PlayerDisconnected { player_id } => {
+                            // Check if it's the opponent
+                            if *player_id != my_player_id {
+                                opponent_disconnected = true;
+
+                                // Transition to WaitingForOpponentToReconnect if not already selected
+                                if let RockPaperScissorsUiState::SelectMove {
+                                    match_data,
+                                    previous_rounds,
+                                    you_selected: false,
+                                    ..
+                                } = &ui_state {
+                                    ui_state = RockPaperScissorsUiState::WaitingForOpponentToReconnect {
+                                        match_data: match_data.clone(),
+                                        previous_rounds: previous_rounds.clone(),
+                                    };
+                                    ui_state.render(my_number.unwrap_or(1));
+                                }
+                            }
+                        }
+                        ServerMessage::MatchEnded { reason } => {
+                            // Get the last match data from current state
+                            let final_match = match &ui_state {
+                                RockPaperScissorsUiState::SelectMove { match_data, .. } |
+                                RockPaperScissorsUiState::WaitingForOpponentToReconnect { match_data, .. } => match_data.clone(),
+                                _ => {
+                                    println!("\n{}", "Match ended".yellow());
+                                    println!("\nPress any key to return to main menu...");
+                                    io::stdout().flush()?;
+                                    crate::wait_for_keypress()?;
+                                    return Ok(());
+                                }
+                            };
+
+                            ui_state = match reason {
+                                MatchEndReason::Disconnection => {
+                                    RockPaperScissorsUiState::MatchEndedOpponentDisconnected(final_match)
+                                }
+                                MatchEndReason::Ended => {
+                                    // Check outcome
+                                    if let Some(outcome) = &final_match.outcome {
+                                        match outcome {
+                                            MatchOutcome::Player1Win => {
+                                                if my_number == Some(1) {
+                                                    RockPaperScissorsUiState::MatchEndedYouWon(final_match)
+                                                } else {
+                                                    RockPaperScissorsUiState::MatchEndedYouLost(final_match)
+                                                }
+                                            }
+                                            MatchOutcome::Player2Win => {
+                                                if my_number == Some(2) {
+                                                    RockPaperScissorsUiState::MatchEndedYouWon(final_match)
+                                                } else {
+                                                    RockPaperScissorsUiState::MatchEndedYouLost(final_match)
+                                                }
+                                            }
+                                            MatchOutcome::Draw => {
+                                                RockPaperScissorsUiState::MatchEndedDraw(final_match)
+                                            }
+                                        }
+                                    } else {
+                                        RockPaperScissorsUiState::MatchEndedDraw(final_match)
+                                    }
+                                }
+                            };
+
+                            ui_state.render(my_number.unwrap_or(1));
+
+                            println!("\nPress any key to return to main menu...");
+                            io::stdout().flush()?;
+                            crate::wait_for_keypress()?;
+                            return Ok(());
+                        }
+                        ServerMessage::GameStateUpdate { match_data } => {
+                            // Update state based on new match data
+                            match &ui_state {
+                                RockPaperScissorsUiState::WaitingForOpponentToJoin => {
+                                    // Reconstruct round results from server game state
+                                    let mut rounds = Vec::new();
+                                    if let Ok(rps_state) = serde_json::from_value::<RPSGameState>(match_data.game_state.clone()) {
+                                        for (p1, p2) in &rps_state.rounds {
+                                            if p1.is_some() && p2.is_some() {
+                                                rounds.push(RoundResult {
+                                                    player1_move: p1.clone(),
+                                                    player2_move: p2.clone(),
+                                                });
+                                            }
+                                        }
+                                    }
+
+                                    ui_state = RockPaperScissorsUiState::SelectMove {
+                                        match_data: match_data.clone(),
+                                        previous_rounds: rounds,
+                                        opponent_selected: false,
+                                        you_selected: false,
+                                    };
+                                    ui_state.render(my_number.unwrap_or(1));
+                                }
+                                RockPaperScissorsUiState::SelectMove {
+                                    previous_rounds: old_rounds,
+                                    you_selected,
+                                    ..
+                                } => {
+                                    // Reconstruct round results from server game state
+                                    let mut rounds = Vec::new();
+                                    if let Ok(rps_state) = serde_json::from_value::<RPSGameState>(match_data.game_state.clone()) {
+                                        for (p1, p2) in &rps_state.rounds {
+                                            if p1.is_some() && p2.is_some() {
+                                                rounds.push(RoundResult {
+                                                    player1_move: p1.clone(),
+                                                    player2_move: p2.clone(),
+                                                });
+                                            }
+                                        }
+                                    }
+
+                                    // If we got a new round result, reset selection state
+                                    let (new_you_selected, new_opponent_selected) = if rounds.len() > old_rounds.len() {
+                                        (false, false)
+                                    } else {
+                                        (*you_selected, false)
+                                    };
+
+                                    ui_state = RockPaperScissorsUiState::SelectMove {
+                                        match_data: match_data.clone(),
+                                        previous_rounds: rounds,
+                                        opponent_selected: new_opponent_selected,
+                                        you_selected: new_you_selected,
+                                    };
+
+                                    // If opponent reconnected, clear the flag
+                                    if opponent_disconnected {
+                                        opponent_disconnected = false;
+                                    }
+
+                                    ui_state.render(my_number.unwrap_or(1));
+                                }
+                                RockPaperScissorsUiState::WaitingForOpponentToReconnect { .. } => {
+                                    // Opponent reconnected, transition back to SelectMove
+                                    opponent_disconnected = false;
+
+                                    // Reconstruct round results
+                                    let mut rounds = Vec::new();
+                                    if let Ok(rps_state) = serde_json::from_value::<RPSGameState>(match_data.game_state.clone()) {
+                                        for (p1, p2) in &rps_state.rounds {
+                                            if p1.is_some() && p2.is_some() {
+                                                rounds.push(RoundResult {
+                                                    player1_move: p1.clone(),
+                                                    player2_move: p2.clone(),
+                                                });
+                                            }
+                                        }
+                                    }
+
+                                    ui_state = RockPaperScissorsUiState::SelectMove {
+                                        match_data: match_data.clone(),
+                                        previous_rounds: rounds,
+                                        opponent_selected: false,
+                                        you_selected: false,
+                                    };
+                                    ui_state.render(my_number.unwrap_or(1));
+                                }
+                                _ => {}
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+
+            // Read user input only when waiting for input
+            result = stdin_reader.read_line(&mut input_line), if waiting_for_input => {
+                match result {
+                    Ok(_) => {
+                        let choice = input_line.trim();
+
+                        // Parse move
+                        let selected_move = match choice {
+                            "1" => Some(RPSMove::Rock),
+                            "2" => Some(RPSMove::Paper),
+                            "3" => Some(RPSMove::Scissors),
+                            _ => None,
+                        };
+
+                        if let Some(mov) = selected_move {
+                            // Send move to server
+                            let move_data = serde_json::json!({
+                                "move": mov
+                            });
+                            ws_client.send(ClientMessage::MakeMove {
+                                move_data,
+                            })?;
+
+                            // Update UI state
+                            if let RockPaperScissorsUiState::SelectMove {
+                                match_data,
+                                previous_rounds,
+                                opponent_selected,
+                                ..
+                            } = &ui_state
+                            {
+                                ui_state = RockPaperScissorsUiState::SelectMove {
+                                    match_data: match_data.clone(),
+                                    previous_rounds: previous_rounds.clone(),
+                                    opponent_selected: *opponent_selected,
+                                    you_selected: true,
+                                };
+                                ui_state.render(my_number.unwrap_or(1));
+                            }
+                        } else {
+                            println!("{}", "Invalid choice. Please enter 1, 2, or 3.".red());
+                            io::stdout().flush()?;
+                        }
+
+                        input_line.clear();
+                    }
+                    Err(e) => {
+                        eprintln!("Error reading input: {e}");
+                        return Err(Box::new(e));
+                    }
+                }
+            }
+        }
+    }
 }
