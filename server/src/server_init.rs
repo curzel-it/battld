@@ -1,3 +1,5 @@
+use battld_common::games::game_type::GameType;
+use battld_common::games::matches::MatchOutcome;
 use sqlx::SqlitePool;
 use rand::Rng;
 
@@ -69,16 +71,17 @@ fn generate_random_completed_game() -> (String, String, i64) {
 
     let winner = check_winner(&cells);
     let outcome = match winner {
-        Some(1) => "p1_win",
-        Some(2) => "p2_win",
-        _ => "draw",
+        Some(1) => MatchOutcome::Player1Win,
+        Some(2) => MatchOutcome::Player2Win,
+        _ => MatchOutcome::Draw,
     };
+    let outcome_json = serde_json::to_string(&outcome).unwrap();
 
     let game_state = format!("{{\"cells\":[{},{},{},{},{},{},{},{},{}]}}",
         cells[0], cells[1], cells[2], cells[3], cells[4],
         cells[5], cells[6], cells[7], cells[8]);
 
-    (game_state, outcome.to_string(), current_player as i64)
+    (game_state, outcome_json, current_player as i64)
 }
 
 fn check_winner(cells: &[i32; 9]) -> Option<i32> {
@@ -149,16 +152,16 @@ pub async fn seed_users(pool: &SqlitePool) -> Result<(), Box<dyn std::error::Err
         let player1_id = player_ids[player1_idx];
         let player2_id = player_ids[player2_idx];
 
-        let (game_state, outcome, current_player) = generate_random_completed_game();
+        let (game_state, outcome, _) = generate_random_completed_game();
 
         sqlx::query(
-            "INSERT INTO matches (player1_id, player2_id, in_progress, outcome, game_type, current_player, game_state)
-             VALUES (?, ?, 0, ?, 'tris', ?, ?)"
+            "INSERT INTO matches (player1_id, player2_id, in_progress, outcome, game_type, game_state)
+             VALUES (?, ?, 0, ?, ?, ?)"
         )
         .bind(player1_id)
         .bind(player2_id)
         .bind(&outcome)
-        .bind(current_player)
+        .bind(serde_json::to_string(&GameType::TicTacToe).unwrap())
         .bind(&game_state)
         .execute(pool)
         .await?;

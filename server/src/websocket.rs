@@ -11,7 +11,7 @@ use tokio::sync::{mpsc, RwLock};
 use tokio::task::AbortHandle;
 use tokio::time::{Duration, sleep};
 
-use battld_common::{ClientMessage, ServerMessage};
+use battld_common::{games::game_type::GameType, ClientMessage, ServerMessage};
 use crate::{database::Database, AppState, game_logic};
 use crate::game_logic::OutgoingMessage;
 
@@ -99,8 +99,13 @@ impl ConnectionRegistry {
         // Cancel any existing timer for this player
         self.cancel_disconnect_timer(player_id).await;
 
+        let timeout_seconds = std::env::var("DISCONNECT_TIMEOUT_SECONDS")
+            .ok()
+            .and_then(|s| s.parse::<u64>().ok())
+            .unwrap_or(10);
+
         let timer_task = tokio::spawn(async move {
-            sleep(Duration::from_secs(10)).await;
+            sleep(Duration::from_secs(timeout_seconds)).await;
             println!("Disconnect timer expired for player {player_id} in match {match_id}");
             handle_disconnect_timeout(player_id, match_id, &db, &registry).await;
         });
@@ -110,7 +115,7 @@ impl ConnectionRegistry {
             match_id,
             timer_handle: timer_task.abort_handle(),
         });
-        println!("Started 10s disconnect timer for player {player_id} in match {match_id}");
+        println!("Started {timeout_seconds}s disconnect timer for player {player_id} in match {match_id}");
     }
 
     /// Cancel a disconnect timer for a player (they reconnected)
@@ -204,9 +209,9 @@ async fn handle_socket(socket: WebSocket, db: Arc<Database>, registry: SharedReg
                         ClientMessage::Ping => {
                             let _ = tx.send(ServerMessage::Pong);
                         }
-                        ClientMessage::JoinMatchmaking => {
+                        ClientMessage::JoinMatchmaking { game_type } => {
                             if let Some(pid) = player_id {
-                                handle_join_matchmaking(pid, &db, &registry).await;
+                                handle_join_matchmaking(pid, game_type, &db, &registry).await;
                             } else {
                                 let _ = tx.send(ServerMessage::Error {
                                     message: "Not authenticated".to_string(),
@@ -222,9 +227,9 @@ async fn handle_socket(socket: WebSocket, db: Arc<Database>, registry: SharedReg
                                 });
                             }
                         }
-                        ClientMessage::MakeMove { row, col } => {
+                        ClientMessage::MakeMove { move_data } => {
                             if let Some(pid) = player_id {
-                                handle_make_move(pid, row, col, &db, &registry).await;
+                                handle_make_move(pid, move_data, &db, &registry).await;
                             } else {
                                 let _ = tx.send(ServerMessage::Error {
                                     message: "Not authenticated".to_string(),
@@ -288,20 +293,19 @@ async fn handle_resume_match(player_id: i64, db: &Arc<Database>, registry: &Shar
 }
 
 /// Handle matchmaking request
-async fn handle_join_matchmaking(player_id: i64, db: &Arc<Database>, registry: &SharedRegistry) {
-    let messages = game_logic::handle_join_matchmaking_logic(player_id, db).await;
+async fn handle_join_matchmaking(player_id: i64, game_type: GameType, db: &Arc<Database>, registry: &SharedRegistry) {
+    let messages = game_logic::handle_join_matchmaking_logic(player_id, game_type, db).await;
     registry.send_messages(messages).await;
 }
 
 /// Handle a move request
 async fn handle_make_move(
     player_id: i64,
-    row: usize,
-    col: usize,
+    move_data: serde_json::Value,
     db: &Arc<Database>,
     registry: &SharedRegistry,
 ) {
-    let messages = game_logic::handle_make_move_logic(player_id, row, col, db).await;
+    let messages = game_logic::handle_make_move_logic(player_id, move_data, db).await;
     registry.send_messages(messages).await;
 }
 

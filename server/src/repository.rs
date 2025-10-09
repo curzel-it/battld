@@ -1,5 +1,5 @@
 use battld_common::*;
-use crate::database::{Database, PlayerRecord, MatchRecord};
+use crate::database::{Database, PlayerRecord};
 
 pub async fn fetch_player(database: &Database, player_id: i64) -> Option<Player> {
     println!("Fetching player {player_id} from database");
@@ -42,23 +42,5 @@ impl PlayerRecord {
             name: self.name.clone(),
             score: self.score,
         }
-    }
-}
-
-impl MatchRecord {
-    pub fn to_match(&self) -> Option<Match> {
-        let game_state = GameState::from_json(&self.game_state).ok()?;
-        let outcome = self.outcome.as_ref().and_then(|s| MatchOutcome::from_string(s));
-
-        Some(Match {
-            id: self.id,
-            player1_id: self.player1_id,
-            player2_id: self.player2_id,
-            in_progress: self.in_progress != 0,
-            outcome,
-            game_type: self.game_type.clone(),
-            current_player: self.current_player as i32,
-            game_state,
-        })
     }
 }

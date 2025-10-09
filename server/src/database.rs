@@ -1,4 +1,5 @@
 use sqlx::{SqlitePool, FromRow};
+use battld_common::games::{game_type::GameType, matches::{Match, MatchOutcome}};
 
 #[derive(Clone)]
 pub struct Database {
@@ -20,10 +21,28 @@ pub struct MatchRecord {
     pub player1_id: i64,
     pub player2_id: i64,
     pub in_progress: i64,
-    pub outcome: Option<String>,
-    pub game_type: String,
-    pub current_player: i64,
-    pub game_state: String,
+    pub outcome: Option<String>, // JSON string
+    pub game_type: String, // JSON string
+    pub game_state: String, // JSON string
+}
+
+impl MatchRecord {
+    pub fn to_match(&self) -> Option<Match> {
+        let game_type: GameType = serde_json::from_str(&self.game_type).ok()?;
+        let game_state: serde_json::Value = serde_json::from_str(&self.game_state).ok()?;
+        let outcome: Option<MatchOutcome> = self.outcome.as_ref()
+            .and_then(|s| serde_json::from_str(s).ok());
+
+        Some(Match {
+            id: self.id,
+            player1_id: self.player1_id,
+            player2_id: self.player2_id,
+            in_progress: self.in_progress != 0,
+            outcome,
+            game_type,
+            game_state,
+        })
+    }
 }
 
 impl Database {
@@ -91,15 +110,19 @@ impl Database {
         let player = sqlx::query_as::<_, PlayerRecord>("SELECT * FROM players WHERE id = ?")
             .bind(id)
             .fetch_optional(&self.pool)
-            .await.ok().flatten();
+            .await;
 
         match player {
-            Some(p) => {
+            Ok(Some(p)) => {
                 println!("DB: Found player: id={}, name='{}'", p.id, p.name);
                 Some(p)
             }
-            None => {
+            Ok(None) => {
                 println!("DB: No player found with ID: {id}");
+                None
+            }
+            Err(e) => {
+                println!("DB: Error querying player by ID {id}: {e:#?}");
                 None
             }
         }
@@ -110,16 +133,16 @@ impl Database {
         &self,
         player1_id: i64,
         player2_id: i64,
-        current_player: i64,
         game_state: &str,
+        game_type: &str,
     ) -> Result<i64, sqlx::Error> {
         let result = sqlx::query(
-            "INSERT INTO matches (player1_id, player2_id, in_progress, game_type, current_player, game_state)
-             VALUES (?, ?, 1, 'tris', ?, ?)"
+            "INSERT INTO matches (player1_id, player2_id, in_progress, game_type, game_state)
+             VALUES (?, ?, 1, ?, ?)"
         )
         .bind(player1_id)
         .bind(player2_id)
-        .bind(current_player)
+        .bind(game_type)
         .bind(game_state)
         .execute(&self.pool)
         .await?;
@@ -127,23 +150,25 @@ impl Database {
         Ok(result.last_insert_rowid())
     }
 
-    pub async fn create_waiting_match(&self, player1_id: i64) -> Result<i64, sqlx::Error> {
+    pub async fn create_waiting_match(&self, player1_id: i64, game_type: &str) -> Result<i64, sqlx::Error> {
         let result = sqlx::query(
             "INSERT INTO matches (player1_id, player2_id, in_progress, game_type)
-             VALUES (?, NULL, 1, 'tris')"
+             VALUES (?, NULL, 1, ?)"
         )
         .bind(player1_id)
+        .bind(game_type)
         .execute(&self.pool)
         .await?;
 
         Ok(result.last_insert_rowid())
     }
 
-    pub async fn find_waiting_match(&self, player_id: i64) -> Option<MatchRecord> {
+    pub async fn find_waiting_match(&self, player_id: i64, game_type: &str) -> Option<MatchRecord> {
         sqlx::query_as::<_, MatchRecord>(
-            "SELECT * FROM matches WHERE player2_id IS NULL AND player1_id != ? AND in_progress = 1 LIMIT 1"
+            "SELECT * FROM matches WHERE player2_id IS NULL AND player1_id != ? AND in_progress = 1 AND game_type = ? LIMIT 1"
         )
         .bind(player_id)
+        .bind(game_type)
         .fetch_optional(&self.pool)
         .await
         .ok()
@@ -154,14 +179,12 @@ impl Database {
         &self,
         match_id: i64,
         player2_id: i64,
-        current_player: i64,
         game_state: &str,
     ) -> Result<(), sqlx::Error> {
         sqlx::query(
-            "UPDATE matches SET player2_id = ?, current_player = ?, game_state = ? WHERE id = ?"
+            "UPDATE matches SET player2_id = ?, game_state = ? WHERE id = ?"
         )
         .bind(player2_id)
-        .bind(current_player)
         .bind(game_state)
         .bind(match_id)
         .execute(&self.pool)
@@ -185,15 +208,13 @@ impl Database {
     pub async fn update_match(
         &self,
         match_id: i64,
-        current_player: i64,
         game_state: &str,
         in_progress: bool,
         outcome: Option<&str>,
     ) -> Result<(), sqlx::Error> {
         sqlx::query(
-            "UPDATE matches SET current_player = ?, game_state = ?, in_progress = ?, outcome = ? WHERE id = ?"
+            "UPDATE matches SET game_state = ?, in_progress = ?, outcome = ? WHERE id = ?"
         )
-        .bind(current_player)
         .bind(game_state)
         .bind(if in_progress { 1 } else { 0 })
         .bind(outcome)
@@ -234,23 +255,27 @@ impl Database {
 
     pub async fn update_player_scores_from_match(&self, match_record: &MatchRecord) -> Result<(), sqlx::Error> {
         if let Some(outcome_str) = &match_record.outcome {
+            let outcome: MatchOutcome = match serde_json::from_str(outcome_str) {
+                Ok(o) => o,
+                Err(_) => return Ok(()), // Invalid outcome, skip
+            };
+
             let player1_score_delta;
             let player2_score_delta;
 
-            match outcome_str.as_str() {
-                "p1_win" => {
+            match outcome {
+                MatchOutcome::Player1Win => {
                     player1_score_delta = 3;
                     player2_score_delta = -1;
                 }
-                "p2_win" => {
+                MatchOutcome::Player2Win => {
                     player1_score_delta = -1;
                     player2_score_delta = 3;
                 }
-                "draw" => {
+                MatchOutcome::Draw => {
                     player1_score_delta = 1;
                     player2_score_delta = 1;
                 }
-                _ => return Ok(()), // Unknown outcome, skip
             }
 
             // Update player1 score
@@ -296,8 +321,8 @@ mod tests {
         let p2 = create_test_player(&db, "player2").await;
 
         // Create a match with p1 winning
-        let match_id = db.create_match(p1, p2, 1, "{}").await.unwrap();
-        db.update_match(match_id, 1, "{}", false, Some("p1_win")).await.unwrap();
+        let match_id = db.create_match(p1, p2, "{}", &serde_json::to_string(&GameType::TicTacToe).unwrap()).await.unwrap();
+        db.update_match(match_id, "{}", false, Some(&serde_json::to_string(&MatchOutcome::Player1Win).unwrap())).await.unwrap();
 
         let match_record = db.get_match_by_id(match_id).await.unwrap();
         db.update_player_scores_from_match(&match_record).await.unwrap();
@@ -317,8 +342,8 @@ mod tests {
         let p2 = create_test_player(&db, "player2").await;
 
         // Create a match with p2 winning
-        let match_id = db.create_match(p1, p2, 1, "{}").await.unwrap();
-        db.update_match(match_id, 2, "{}", false, Some("p2_win")).await.unwrap();
+        let match_id = db.create_match(p1, p2, "{}", &serde_json::to_string(&GameType::TicTacToe).unwrap()).await.unwrap();
+        db.update_match(match_id, "{}", false, Some(&serde_json::to_string(&MatchOutcome::Player2Win).unwrap())).await.unwrap();
 
         let match_record = db.get_match_by_id(match_id).await.unwrap();
         db.update_player_scores_from_match(&match_record).await.unwrap();
@@ -338,8 +363,8 @@ mod tests {
         let p2 = create_test_player(&db, "player2").await;
 
         // Create a match with draw
-        let match_id = db.create_match(p1, p2, 1, "{}").await.unwrap();
-        db.update_match(match_id, 1, "{}", false, Some("draw")).await.unwrap();
+        let match_id = db.create_match(p1, p2, "{}", &serde_json::to_string(&GameType::TicTacToe).unwrap()).await.unwrap();
+        db.update_match(match_id, "{}", false, Some(&serde_json::to_string(&MatchOutcome::Draw).unwrap())).await.unwrap();
 
         let match_record = db.get_match_by_id(match_id).await.unwrap();
         db.update_player_scores_from_match(&match_record).await.unwrap();
@@ -359,20 +384,20 @@ mod tests {
         let p2 = create_test_player(&db, "player2").await;
 
         // Match 1: p1 wins
-        let match1 = db.create_match(p1, p2, 1, "{}").await.unwrap();
-        db.update_match(match1, 1, "{}", false, Some("p1_win")).await.unwrap();
+        let match1 = db.create_match(p1, p2, "{}", &serde_json::to_string(&GameType::TicTacToe).unwrap()).await.unwrap();
+        db.update_match(match1, "{}", false, Some(&serde_json::to_string(&MatchOutcome::Player1Win).unwrap())).await.unwrap();
         let match1_record = db.get_match_by_id(match1).await.unwrap();
         db.update_player_scores_from_match(&match1_record).await.unwrap();
 
         // Match 2: p2 wins
-        let match2 = db.create_match(p1, p2, 1, "{}").await.unwrap();
-        db.update_match(match2, 2, "{}", false, Some("p2_win")).await.unwrap();
+        let match2 = db.create_match(p1, p2, "{}", &serde_json::to_string(&GameType::TicTacToe).unwrap()).await.unwrap();
+        db.update_match(match2, "{}", false, Some(&serde_json::to_string(&MatchOutcome::Player2Win).unwrap())).await.unwrap();
         let match2_record = db.get_match_by_id(match2).await.unwrap();
         db.update_player_scores_from_match(&match2_record).await.unwrap();
 
         // Match 3: draw
-        let match3 = db.create_match(p1, p2, 1, "{}").await.unwrap();
-        db.update_match(match3, 1, "{}", false, Some("draw")).await.unwrap();
+        let match3 = db.create_match(p1, p2, "{}", &serde_json::to_string(&GameType::TicTacToe).unwrap()).await.unwrap();
+        db.update_match(match3, "{}", false, Some(&serde_json::to_string(&MatchOutcome::Draw).unwrap())).await.unwrap();
         let match3_record = db.get_match_by_id(match3).await.unwrap();
         db.update_player_scores_from_match(&match3_record).await.unwrap();
 
@@ -391,7 +416,7 @@ mod tests {
         let p2 = create_test_player(&db, "player2").await;
 
         // Create a match without outcome (still in progress)
-        let match_id = db.create_match(p1, p2, 1, "{}").await.unwrap();
+        let match_id = db.create_match(p1, p2, "{}", &serde_json::to_string(&GameType::TicTacToe).unwrap()).await.unwrap();
 
         let match_record = db.get_match_by_id(match_id).await.unwrap();
         db.update_player_scores_from_match(&match_record).await.unwrap();
@@ -411,8 +436,8 @@ mod tests {
         let p2 = create_test_player(&db, "player2").await;
 
         // Create a match with an unknown/invalid outcome
-        let match_id = db.create_match(p1, p2, 1, "{}").await.unwrap();
-        db.update_match(match_id, 1, "{}", false, Some("unknown")).await.unwrap();
+        let match_id = db.create_match(p1, p2, "{}", &serde_json::to_string(&GameType::TicTacToe).unwrap()).await.unwrap();
+        db.update_match(match_id, "{}", false, Some("unknown")).await.unwrap();
 
         let match_record = db.get_match_by_id(match_id).await.unwrap();
         db.update_player_scores_from_match(&match_record).await.unwrap();

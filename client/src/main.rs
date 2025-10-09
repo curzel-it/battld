@@ -2,17 +2,19 @@ pub mod api;
 pub mod auth;
 pub mod config;
 pub mod leaderboard;
+pub mod games;
 pub mod state;
 pub mod stats;
-pub mod tris;
 pub mod ui;
 pub mod utils;
 pub mod websocket;
 
+use std::io;
+
+use battld_common::games::{game_type::GameType, matches::Match};
 use colored::*;
 use crossterm::{event::{self, Event}, terminal};
 use rustyline::DefaultEditor;
-use std::io::{self, Write};
 
 use auth::try_auto_login;
 use leaderboard::*;
@@ -20,6 +22,8 @@ use state::*;
 use stats::*;
 use ui::*;
 use utils::VERSION;
+
+use crate::games::{rock_paper_scissors, tic_tac_toe};
 
 #[tokio::main]
 async fn main() {
@@ -63,9 +67,17 @@ async fn start_app(config_path: &str) -> Result<(), Box<dyn std::error::Error>> 
     // Enter main menu loop
     loop {
         match read_menu_choice(&mut session).await? {
-            MenuChoice::StartGame => {
-                // Start game flow
-                if let Err(e) = start_game_flow(&mut session).await {
+            MenuChoice::StartTicTacToe => {
+                // Start TicTacToe game flow
+                if let Err(e) = start_game_flow(&mut session, GameType::TicTacToe).await {
+                    println!("{}", format!("Game error: {e}").red());
+                    println!("\nPress any key to return to menu...");
+                    wait_for_keypress()?;
+                }
+            }
+            MenuChoice::StartRockPaperScissors => {
+                // Start Rock-Paper-Scissors game flow
+                if let Err(e) = start_game_flow(&mut session, GameType::RockPaperScissors).await {
                     println!("{}", format!("Game error: {e}").red());
                     println!("\nPress any key to return to menu...");
                     wait_for_keypress()?;
@@ -96,7 +108,8 @@ async fn start_app(config_path: &str) -> Result<(), Box<dyn std::error::Error>> 
 }
 
 enum MenuChoice {
-    StartGame,
+    StartTicTacToe,
+    StartRockPaperScissors,
     Stats,
     Leaderboard,
     Exit,
@@ -127,10 +140,11 @@ fn display_menu(title: &str, items: &[(String, String)]) {
 
 async fn read_menu_choice(_session: &mut SessionState) -> io::Result<MenuChoice> {
     let menu_items = vec![
-        ("1".to_string(), "Start New Game".to_string()),
-        ("2".to_string(), "Your Stats".to_string()),
-        ("3".to_string(), "Leaderboard".to_string()),
-        ("4".to_string(), "Exit".to_string()),
+        ("1".to_string(), "Start Tic-Tac-Toe Game".to_string()),
+        ("2".to_string(), "Start Rock-Paper-Scissors Game".to_string()),
+        ("3".to_string(), "Your Stats".to_string()),
+        ("4".to_string(), "Leaderboard".to_string()),
+        ("5".to_string(), "Exit".to_string()),
     ];
 
     let title = format!("v{VERSION}");
@@ -144,12 +158,13 @@ async fn read_menu_choice(_session: &mut SessionState) -> io::Result<MenuChoice>
             Ok(line) => {
                 let choice = line.trim();
                 match choice {
-                    "1" => return Ok(MenuChoice::StartGame),
-                    "2" => return Ok(MenuChoice::Stats),
-                    "3" => return Ok(MenuChoice::Leaderboard),
-                    "4" => return Ok(MenuChoice::Exit),
+                    "1" => return Ok(MenuChoice::StartTicTacToe),
+                    "2" => return Ok(MenuChoice::StartRockPaperScissors),
+                    "3" => return Ok(MenuChoice::Stats),
+                    "4" => return Ok(MenuChoice::Leaderboard),
+                    "5" => return Ok(MenuChoice::Exit),
                     _ => {
-                        println!("{}", "Invalid choice. Please enter 1-4.".red());
+                        println!("{}", "Invalid choice. Please enter 1-5.".red());
                         continue;
                     }
                 }
@@ -178,52 +193,31 @@ async fn check_and_handle_resumable_match(session: &mut SessionState) -> Result<
             println!("{}", format!("Match ID: {}", match_data.id).dimmed());
             println!("{}", format!("Opponent: Player {}", if match_data.player1_id == session.player_id.unwrap() { match_data.player2_id } else { match_data.player1_id }).dimmed());
             println!();
-            println!("{}", "Do you want to resume? (y/n)".cyan());
-            print!("> ");
-            io::stdout().flush()?;
 
-            let mut rl = DefaultEditor::new().map_err(io::Error::other)?;
+            // Automatically resume
+            ws_client.send(ClientMessage::ResumeMatch)?;
 
-            loop {
-                let readline = rl.readline("> ");
-                match readline {
-                    Ok(line) => {
-                        let choice = line.trim().to_lowercase();
-                        match choice.as_str() {
-                            "y" | "yes" => {
-                                // Send ResumeMatch
-                                ws_client.send(ClientMessage::ResumeMatch)?;
+            println!("{}", "Resuming match...".cyan());
+            let game_match = wait_for_game_state(ws_client).await?;
 
-                                // Wait for GameStateUpdate and resume game
-                                println!("\n{}", "Resuming match...".cyan());
-                                let game_match = wait_for_game_state(ws_client).await?;
-                                tris::resume_game(session, game_match).await?;
-                                return Ok(());
-                            }
-                            "n" | "no" => {
-                                println!("\n{}", "Match declined. You will be disconnected from it.".yellow());
-                                println!("{}", "Press any key to continue...".dimmed());
-                                wait_for_keypress()?;
-                                return Ok(());
-                            }
-                            _ => {
-                                println!("{}", "Invalid choice. Please enter 'y' or 'n'.".red());
-                                continue;
-                            }
-                        }
-                    }
-                    Err(_) => {
-                        return Ok(());
-                    }
+            // Route to correct game based on game_type
+            match game_match.game_type {
+                GameType::TicTacToe => {
+                    tic_tac_toe::resume_game(session, game_match).await?;
+                }
+                GameType::RockPaperScissors => {
+                    rock_paper_scissors::resume_game(session, game_match).await?;
                 }
             }
+
+            return Ok(());
         }
     }
 
     Ok(())
 }
 
-async fn wait_for_game_state(ws_client: &crate::websocket::WebSocketClient) -> Result<battld_common::Match, Box<dyn std::error::Error>> {
+async fn wait_for_game_state(ws_client: &crate::websocket::WebSocketClient) -> Result<Match, Box<dyn std::error::Error>> {
     use battld_common::*;
 
     loop {
@@ -239,13 +233,17 @@ async fn wait_for_game_state(ws_client: &crate::websocket::WebSocketClient) -> R
     }
 }
 
-async fn start_game_flow(session: &mut SessionState) -> Result<(), Box<dyn std::error::Error>> {
+async fn start_game_flow(session: &mut SessionState, game_type: GameType) -> Result<(), Box<dyn std::error::Error>> {
     clear_screen()?;
-    println!("\n{}", "Starting matchmaking...".cyan());
+
+    println!("\n{}", format!("Starting {game_type} matchmaking...").cyan());
     println!("{}", "Waiting for opponent...".dimmed());
 
-    // Connect to WebSocket and join matchmaking
-    tris::start_game(session).await?;
+    // Route to appropriate game module
+    match game_type {
+        GameType::TicTacToe => games::tic_tac_toe::start_game(session, game_type).await?,
+        GameType::RockPaperScissors => games::rock_paper_scissors::start_game(session, game_type).await?,
+    }
 
     Ok(())
 }

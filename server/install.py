@@ -45,6 +45,7 @@ import sys
 import subprocess
 import shutil
 from pathlib import Path
+import time
 
 # Configuration
 SERVICE_NAME = "battld-server"
@@ -493,7 +494,6 @@ def enable_and_start_service():
     print(f" Service started")
 
     # Wait a moment for service to start
-    import time
     time.sleep(2)
 
     # Check status
@@ -501,9 +501,11 @@ def enable_and_start_service():
 
     if result.returncode == 0:
         print(" Service is running")
+        return True
     else:
         print("� Service may have issues. Check logs with:")
         print(f"  sudo journalctl -u {SERVICE_NAME} -f")
+        return False
 
 def print_summary():
     """Print installation/update summary and useful commands."""
@@ -556,7 +558,7 @@ def print_summary():
     print("\n")
 
 def git_pull():
-    os.system("cd /root/battld && git pull origin main")
+    os.system("cd /root/battld && git pull origin $(git branch --show-current)")
 
 def main():
     """Main installation flow."""
@@ -586,8 +588,15 @@ def main():
         obtain_ssl_certificate()
         setup_certbot_renewal()
         update_env_for_ssl()
-        enable_and_start_service()
+        is_running = enable_and_start_service()
         print_summary()
+
+        if not is_running:
+            print(f"Service is not running, rebooting in...")
+            for i in range(0, 10):
+                print(f"... {10 - i}...")
+                time.sleep(1)
+            os.system("sudo shutdown -r now")
 
     except KeyboardInterrupt:
         print("\n\n Installation cancelled by user")

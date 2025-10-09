@@ -1,5 +1,8 @@
-use battld_common::{GameState, MatchOutcome, MatchEndReason, ServerMessage};
+use battld_common::{games::{game_type::GameType, matches::{MatchEndReason, MatchOutcome}}, ServerMessage};
 use crate::database::Database;
+use crate::game_router;
+
+// Match is used in game_router functions called from this module
 
 /// Represents a message to be sent to a specific player
 #[derive(Debug, Clone)]
@@ -73,13 +76,13 @@ pub async fn handle_resume_match_logic(
         OutgoingMessage {
             player_id,
             message: ServerMessage::GameStateUpdate {
-                match_data: match_info.clone(),
+                match_data: game_router::redact_match_for_player(&match_info, player_id),
             },
         },
         OutgoingMessage {
             player_id: opponent_id,
             message: ServerMessage::GameStateUpdate {
-                match_data: match_info,
+                match_data: game_router::redact_match_for_player(&match_info, opponent_id),
             },
         },
     ]
@@ -88,10 +91,9 @@ pub async fn handle_resume_match_logic(
 /// Handle matchmaking request - returns messages to send
 pub async fn handle_join_matchmaking_logic(
     player_id: i64,
+    game_type: GameType,
     db: &Database,
 ) -> Vec<OutgoingMessage> {
-    use rand::Rng;
-
     // Check if player already has an active match
     if let Some(match_record) = db.get_active_match_for_player(player_id).await {
         println!("Player {player_id} already in match {}", match_record.id);
@@ -99,31 +101,26 @@ pub async fn handle_join_matchmaking_logic(
             return vec![OutgoingMessage {
                 player_id,
                 message: ServerMessage::GameStateUpdate {
-                    match_data: match_info,
+                    match_data: game_router::redact_match_for_player(&match_info, player_id),
                 },
             }];
         }
         return vec![];
     }
 
+    let game_type_json = serde_json::to_string(&game_type).unwrap();
+
     // Try to find a waiting opponent
-    if let Some(waiting_match) = db.find_waiting_match(player_id).await {
+    if let Some(waiting_match) = db.find_waiting_match(player_id, &game_type_json).await {
         let p1_id = waiting_match.player1_id;
         let p2_id = player_id;
-        println!("Matching player {player_id} with waiting player {p1_id}");
+        println!("Matching player {player_id} with waiting player {p1_id} for game type: {game_type}");
 
-        // Randomize who goes first
-        let first_player = {
-            let mut rng = rand::thread_rng();
-            if rng.gen_bool(0.5) { 1 } else { 2 }
-        };
-
-        // Initialize game state
-        let game_state = GameState::new();
-        let game_state_json = game_state.to_json();
+        // Initialize game state based on game type
+        let game_state_json = game_router::initialize_game_state(&game_type);
 
         // Update the waiting match
-        if (db.join_waiting_match(waiting_match.id, p2_id, first_player as i64, &game_state_json).await).is_ok() {
+        if (db.join_waiting_match(waiting_match.id, p2_id, &game_state_json).await).is_ok() {
             if let Some(match_record) = db.get_match_by_id(waiting_match.id).await {
                 if let Some(match_info) = match_record.to_match() {
                     // Notify both players
@@ -131,13 +128,13 @@ pub async fn handle_join_matchmaking_logic(
                         OutgoingMessage {
                             player_id: p1_id,
                             message: ServerMessage::MatchFound {
-                                match_data: match_info.clone(),
+                                match_data: game_router::redact_match_for_player(&match_info, p1_id),
                             },
                         },
                         OutgoingMessage {
                             player_id: p2_id,
                             message: ServerMessage::MatchFound {
-                                match_data: match_info,
+                                match_data: game_router::redact_match_for_player(&match_info, p2_id),
                             },
                         },
                     ];
@@ -146,8 +143,8 @@ pub async fn handle_join_matchmaking_logic(
         }
     } else {
         // No opponent found, create a waiting match
-        if (db.create_waiting_match(player_id).await).is_ok() {
-            println!("Player {player_id} created waiting match");
+        if (db.create_waiting_match(player_id, &game_type_json).await).is_ok() {
+            println!("Player {player_id} created waiting match for game type: {game_type}");
             return vec![OutgoingMessage {
                 player_id,
                 message: ServerMessage::WaitingForOpponent,
@@ -161,8 +158,7 @@ pub async fn handle_join_matchmaking_logic(
 /// Handle a move request - returns messages to send
 pub async fn handle_make_move_logic(
     player_id: i64,
-    row: usize,
-    col: usize,
+    move_data: serde_json::Value,
     db: &Database,
 ) -> Vec<OutgoingMessage> {
     // Get active match for this player
@@ -200,87 +196,39 @@ pub async fn handle_make_move_logic(
         }];
     }
 
-    // Determine which player number the current player is
-    let player_number = if game_match.player1_id == player_id {
-        1
-    } else if game_match.player2_id == player_id {
-        2
-    } else {
-        return vec![OutgoingMessage {
-            player_id,
-            message: ServerMessage::Error {
-                message: "Player not in this match".to_string(),
-            },
-        }];
-    };
-
-    // Verify it's this player's turn
-    if game_match.current_player != player_number {
-        return vec![OutgoingMessage {
-            player_id,
-            message: ServerMessage::Error {
-                message: "Not your turn".to_string(),
-            },
-        }];
-    }
-
-    // Convert row/col to index and make the move
-    let index = match GameState::coords_to_index(row, col) {
-        Some(i) => i,
-        None => {
+    // Use game router to process the move
+    let move_result = match game_router::handle_game_move(&game_match, player_id, move_data) {
+        Ok(result) => result,
+        Err(e) => {
             return vec![OutgoingMessage {
                 player_id,
                 message: ServerMessage::Error {
-                    message: "Invalid coordinates".to_string(),
+                    message: e.to_string(),
                 },
             }];
         }
     };
 
-    if let Err(e) = game_match.game_state.place_move(index, player_number) {
-        return vec![OutgoingMessage {
-            player_id,
-            message: ServerMessage::Error {
-                message: e,
-            },
-        }];
-    }
+    let in_progress = !move_result.is_finished;
+    let outcome_json = move_result.outcome.as_ref().map(|o| serde_json::to_string(o).unwrap());
 
-    // Check for winner
-    let outcome = if let Some(winner) = game_match.game_state.check_winner() {
-        Some(if winner == 1 {
-            MatchOutcome::Player1Win
-        } else {
-            MatchOutcome::Player2Win
-        })
-    } else if game_match.game_state.is_full() {
-        Some(MatchOutcome::Draw)
-    } else {
-        None
-    };
-
-    // Switch to next player if game continues
-    let next_player = if outcome.is_some() {
-        game_match.current_player
-    } else if game_match.current_player == 1 { 2 } else { 1 };
-
-    let in_progress = outcome.is_none();
-    let outcome_str = outcome.as_ref().map(|o| o.to_string());
+    // Serialize state to string for database
+    let new_state_str = serde_json::to_string(&move_result.new_state).unwrap();
 
     // Update match in database
     if (db.update_match(
         game_match.id,
-        next_player as i64,
-        &game_match.game_state.to_json(),
+        &new_state_str,
         in_progress,
-        outcome_str.as_deref(),
+        outcome_json.as_deref(),
     ).await).is_ok() {
-        game_match.current_player = next_player;
+        // Update match struct with new values
+        game_match.game_state = move_result.new_state;
         game_match.in_progress = in_progress;
-        game_match.outcome = outcome;
+        game_match.outcome = move_result.outcome;
 
-        println!("Player {player_id} made move at ({}, {}). Match {}: in_progress={}, outcome={:?}",
-            row, col, game_match.id, in_progress, game_match.outcome);
+        println!("Player {player_id} made move. Match {}: in_progress={}, outcome={:?}",
+            game_match.id, in_progress, game_match.outcome);
 
         // If match ended, update player scores
         if !in_progress {
@@ -293,13 +241,13 @@ pub async fn handle_make_move_logic(
             OutgoingMessage {
                 player_id: game_match.player1_id,
                 message: ServerMessage::GameStateUpdate {
-                    match_data: game_match.clone(),
+                    match_data: game_router::redact_match_for_player(&game_match, game_match.player1_id),
                 },
             },
             OutgoingMessage {
                 player_id: game_match.player2_id,
                 message: ServerMessage::GameStateUpdate {
-                    match_data: game_match.clone(),
+                    match_data: game_router::redact_match_for_player(&game_match, game_match.player2_id),
                 },
             },
         ];
@@ -402,12 +350,13 @@ pub async fn handle_disconnect_timeout_logic(
     };
 
     // Mark match as draw due to disconnect timeout
+    let game_state_str = serde_json::to_string(&game_match.game_state).unwrap();
+    let outcome_json = serde_json::to_string(&MatchOutcome::Draw).unwrap();
     let _ = db.update_match(
         game_match.id,
-        game_match.current_player as i64,
-        &game_match.game_state.to_json(),
+        &game_state_str,
         false, // not in progress
-        Some(&MatchOutcome::Draw.to_string()),
+        Some(&outcome_json),
     ).await;
 
     println!("Player {player_id} failed to reconnect to match {match_id} within 10s - ending match");
@@ -429,8 +378,8 @@ pub async fn handle_disconnect_timeout_logic(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use battld_common::GameState;
     use sqlx::SqlitePool;
+    use crate::games::tic_tac_toe::TicTacToeGameState;
 
     // Helper function to create a test database
     async fn create_test_db() -> Database {
@@ -450,7 +399,8 @@ mod tests {
         let db = create_test_db().await;
 
         // Try to make a move when player has no active match
-        let messages = handle_make_move_logic(999, 0, 0, &db).await;
+        let move_data = serde_json::json!({"row": 0, "col": 0});
+        let messages = handle_make_move_logic(999, move_data, &db).await;
 
         assert_eq!(messages.len(), 1);
         assert_eq!(messages[0].player_id, 999);
@@ -471,11 +421,14 @@ mod tests {
         let p2 = create_test_player(&db, "player2").await;
 
         // Create a match where player 1 goes first
-        let game_state = GameState::new();
-        let _match_id = db.create_match(p1, p2, 1, &game_state.to_json()).await.unwrap();
+        let game_state = TicTacToeGameState::new();
+        let game_state_json = serde_json::to_string(&game_state).unwrap();
+        let game_type_json = serde_json::to_string(&GameType::TicTacToe).unwrap();
+        let _match_id = db.create_match(p1, p2, &game_state_json, &game_type_json).await.unwrap();
 
         // Try to make a move as player 2 (not their turn)
-        let messages = handle_make_move_logic(p2, 0, 0, &db).await;
+        let move_data = serde_json::json!({"row": 0, "col": 0});
+        let messages = handle_make_move_logic(p2, move_data, &db).await;
 
         assert_eq!(messages.len(), 1);
         assert_eq!(messages[0].player_id, p2);
@@ -496,11 +449,13 @@ mod tests {
         let p2 = create_test_player(&db, "player2").await;
 
         // Create a match where player 1 goes first
-        let game_state = GameState::new();
-        let match_id = db.create_match(p1, p2, 1, &game_state.to_json()).await.unwrap();
+        let game_state = TicTacToeGameState::new();
+        let game_state_json = serde_json::to_string(&game_state).unwrap();
+        let match_id = db.create_match(p1, p2, &game_state_json, &serde_json::to_string(&GameType::TicTacToe).unwrap()).await.unwrap();
 
         // Make a valid move as player 1
-        let messages = handle_make_move_logic(p1, 0, 0, &db).await;
+        let move_data = serde_json::json!({"row": 0, "col": 0});
+        let messages = handle_make_move_logic(p1, move_data, &db).await;
 
         // Should send GameStateUpdate to both players
         assert_eq!(messages.len(), 2);
@@ -515,7 +470,9 @@ mod tests {
             match &msg.message {
                 ServerMessage::GameStateUpdate { match_data } => {
                     assert_eq!(match_data.id, match_id);
-                    assert_eq!(match_data.current_player, 2); // Turn should switch to player 2
+                    // Extract current_player from game_state
+                    let state: TicTacToeGameState = serde_json::from_value(match_data.game_state.clone()).unwrap();
+                    assert_eq!(state.current_player, 2); // Turn should switch to player 2
                     assert!(match_data.in_progress);
                 }
                 _ => panic!("Expected GameStateUpdate message"),
@@ -532,18 +489,20 @@ mod tests {
         let p2 = create_test_player(&db, "player2").await;
 
         // Create a game state where player 1 is about to win
-        let mut game_state = GameState::new();
+        let mut game_state = TicTacToeGameState::new();
         // Player 1 has top row almost complete: X X _
-        game_state.place_move(0, 1).unwrap(); // [0,0]
-        game_state.place_move(3, 2).unwrap(); // [1,0]
-        game_state.place_move(1, 1).unwrap(); // [0,1]
-        game_state.place_move(4, 2).unwrap(); // [1,1]
+        game_state.board[0] = 1; // [0,0]
+        game_state.board[3] = 2; // [1,0]
+        game_state.board[1] = 1; // [0,1]
+        game_state.board[4] = 2; // [1,1]
         // Now player 1 can win by playing [0,2]
 
-        let match_id = db.create_match(p1, p2, 1, &game_state.to_json()).await.unwrap();
+        let game_state_json = serde_json::to_string(&game_state).unwrap();
+        let match_id = db.create_match(p1, p2, &game_state_json, &serde_json::to_string(&GameType::TicTacToe).unwrap()).await.unwrap();
 
         // Make the winning move as player 1
-        let messages = handle_make_move_logic(p1, 0, 2, &db).await;
+        let move_data = serde_json::json!({"row": 0, "col": 2});
+        let messages = handle_make_move_logic(p1, move_data, &db).await;
 
         // Should send GameStateUpdate and MatchEnded to both players
         assert_eq!(messages.len(), 4); // 2 GameStateUpdate + 2 MatchEnded
@@ -580,8 +539,9 @@ mod tests {
         let p2 = create_test_player(&db, "player2").await;
 
         // Create an active match
-        let game_state = GameState::new();
-        let match_id = db.create_match(p1, p2, 1, &game_state.to_json()).await.unwrap();
+        let game_state = TicTacToeGameState::new();
+        let game_state_json = serde_json::to_string(&game_state).unwrap();
+        let match_id = db.create_match(p1, p2, &game_state_json, &serde_json::to_string(&GameType::TicTacToe).unwrap()).await.unwrap();
 
         // Player 1 disconnects
         let (messages, match_id_opt) = handle_disconnect_logic(p1, &db).await;
@@ -608,8 +568,9 @@ mod tests {
         let p2 = create_test_player(&db, "player2").await;
 
         // Create an active match
-        let game_state = GameState::new();
-        let match_id = db.create_match(p1, p2, 1, &game_state.to_json()).await.unwrap();
+        let game_state = TicTacToeGameState::new();
+        let game_state_json = serde_json::to_string(&game_state).unwrap();
+        let match_id = db.create_match(p1, p2, &game_state_json, &serde_json::to_string(&GameType::TicTacToe).unwrap()).await.unwrap();
 
         // Timeout occurs
         let messages = handle_disconnect_timeout_logic(p1, match_id, &db).await;
@@ -623,10 +584,11 @@ mod tests {
             _ => panic!("Expected MatchEnded message"),
         }
 
-        // Match should be marked as draw (lowercase in DB)
+        // Match should be marked as draw (JSON serialized in DB)
         let match_record = db.get_match_by_id(match_id).await.unwrap();
         assert_eq!(match_record.in_progress, 0);
-        assert_eq!(match_record.outcome.as_deref(), Some("draw"));
+        let expected_outcome = serde_json::to_string(&MatchOutcome::Draw).unwrap();
+        assert_eq!(match_record.outcome.as_deref(), Some(expected_outcome.as_str()));
     }
 
     #[tokio::test]
@@ -637,7 +599,7 @@ mod tests {
         let p1 = create_test_player(&db, "player1").await;
 
         // Join matchmaking
-        let messages = handle_join_matchmaking_logic(p1, &db).await;
+        let messages = handle_join_matchmaking_logic(p1, GameType::TicTacToe, &db).await;
 
         // Should send WaitingForOpponent
         assert_eq!(messages.len(), 1);
@@ -658,10 +620,10 @@ mod tests {
         let p2 = create_test_player(&db, "player2").await;
 
         // Player 1 joins matchmaking (creates waiting match)
-        let _ = handle_join_matchmaking_logic(p1, &db).await;
+        let _ = handle_join_matchmaking_logic(p1, GameType::TicTacToe, &db).await;
 
         // Player 2 joins matchmaking (should match with player 1)
-        let messages = handle_join_matchmaking_logic(p2, &db).await;
+        let messages = handle_join_matchmaking_logic(p2, GameType::TicTacToe, &db).await;
 
         // Should send MatchFound to both players
         assert_eq!(messages.len(), 2);
@@ -680,5 +642,46 @@ mod tests {
                 _ => panic!("Expected MatchFound message"),
             }
         }
+    }
+
+    #[tokio::test]
+    async fn test_cross_game_matchmaking_isolation() {
+        let db = create_test_db().await;
+
+        // Create two players
+        let p1 = create_test_player(&db, "player1").await;
+        let p2 = create_test_player(&db, "player2").await;
+
+        // Player 1 joins TicTacToe matchmaking
+        let messages1 = handle_join_matchmaking_logic(p1, GameType::TicTacToe, &db).await;
+
+        // Should be waiting for opponent
+        assert_eq!(messages1.len(), 1);
+        match &messages1[0].message {
+            ServerMessage::WaitingForOpponent => {}
+            _ => panic!("Expected WaitingForOpponent message"),
+        }
+
+        // Player 2 joins RockPaperScissors matchmaking (different game type)
+        let messages2 = handle_join_matchmaking_logic(p2, GameType::RockPaperScissors, &db).await;
+
+        // Should also be waiting (not matched with player 1)
+        assert_eq!(messages2.len(), 1);
+        match &messages2[0].message {
+            ServerMessage::WaitingForOpponent => {}
+            _ => panic!("Expected WaitingForOpponent message"),
+        }
+
+        // Now if a third player joins TicTacToe, they should match with player 1
+        let p3 = create_test_player(&db, "player3").await;
+        let messages3 = handle_join_matchmaking_logic(p3, GameType::TicTacToe, &db).await;
+
+        // Should send MatchFound to p1 and p3
+        assert_eq!(messages3.len(), 2);
+
+        let player_ids: Vec<i64> = messages3.iter().map(|m| m.player_id).collect();
+        assert!(player_ids.contains(&p1));
+        assert!(player_ids.contains(&p3));
+        assert!(!player_ids.contains(&p2)); // p2 not in this match
     }
 }

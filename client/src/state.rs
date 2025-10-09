@@ -39,8 +39,7 @@ impl SessionState {
         if let Some(token) = &self.auth_token {
             let player_id = self.player_id.ok_or("No player ID")?;
             let server_url = self.config.server_url.as_ref().ok_or("No server URL configured")?;
-            let ws_url = format!("wss://{}/ws", server_url.trim_start_matches("https://"));
-            // WebSocket expects "player_id:signature" format
+            let ws_url = format!("{}/ws", server_url.replace("http", "ws"));
             let ws_token = format!("{player_id}:{token}");
             let client = WebSocketClient::connect(&ws_url, ws_token).await?;
             self.ws_client = Some(Arc::new(client));
