@@ -1,4 +1,4 @@
-use battld_common::{games::{game_type::GameType, matches::{Match, MatchEndReason, MatchOutcome}, rock_paper_scissors::{RPSGameState, RPSMove}}, *};
+use battld_common::{games::{game_type::GameType, matches::{Match, MatchEndReason, MatchOutcome}, rock_paper_scissors::{RockPaperScissorsGameState, RockPaperScissorsMove}}, *};
 use crate::state::SessionState;
 use std::io::{self, Write};
 use tokio::io::AsyncBufReadExt;
@@ -6,8 +6,8 @@ use colored::*;
 
 #[derive(Debug, Clone)]
 struct RoundResult {
-    player1_move: Option<RPSMove>,
-    player2_move: Option<RPSMove>,
+    player1_move: Option<RockPaperScissorsMove>,
+    player2_move: Option<RockPaperScissorsMove>,
 }
 
 #[derive(Debug, Clone)]
@@ -190,31 +190,31 @@ enum RoundWinner {
     Draw,
 }
 
-fn determine_round_winner(my_move: &Option<RPSMove>, opponent_move: &Option<RPSMove>, _my_player_number: i32) -> RoundWinner {
+fn determine_round_winner(my_move: &Option<RockPaperScissorsMove>, opponent_move: &Option<RockPaperScissorsMove>, _my_player_number: i32) -> RoundWinner {
     match (my_move, opponent_move) {
-        (Some(RPSMove::Rock), Some(RPSMove::Scissors)) => RoundWinner::You,
-        (Some(RPSMove::Paper), Some(RPSMove::Rock)) => RoundWinner::You,
-        (Some(RPSMove::Scissors), Some(RPSMove::Paper)) => RoundWinner::You,
-        (Some(RPSMove::Rock), Some(RPSMove::Paper)) => RoundWinner::Opponent,
-        (Some(RPSMove::Paper), Some(RPSMove::Scissors)) => RoundWinner::Opponent,
-        (Some(RPSMove::Scissors), Some(RPSMove::Rock)) => RoundWinner::Opponent,
-        (Some(a), Some(b)) if matches!((a, b), (RPSMove::Rock, RPSMove::Rock) | (RPSMove::Paper, RPSMove::Paper) | (RPSMove::Scissors, RPSMove::Scissors)) => RoundWinner::Draw,
+        (Some(RockPaperScissorsMove::Rock), Some(RockPaperScissorsMove::Scissors)) => RoundWinner::You,
+        (Some(RockPaperScissorsMove::Paper), Some(RockPaperScissorsMove::Rock)) => RoundWinner::You,
+        (Some(RockPaperScissorsMove::Scissors), Some(RockPaperScissorsMove::Paper)) => RoundWinner::You,
+        (Some(RockPaperScissorsMove::Rock), Some(RockPaperScissorsMove::Paper)) => RoundWinner::Opponent,
+        (Some(RockPaperScissorsMove::Paper), Some(RockPaperScissorsMove::Scissors)) => RoundWinner::Opponent,
+        (Some(RockPaperScissorsMove::Scissors), Some(RockPaperScissorsMove::Rock)) => RoundWinner::Opponent,
+        (Some(a), Some(b)) if matches!((a, b), (RockPaperScissorsMove::Rock, RockPaperScissorsMove::Rock) | (RockPaperScissorsMove::Paper, RockPaperScissorsMove::Paper) | (RockPaperScissorsMove::Scissors, RockPaperScissorsMove::Scissors)) => RoundWinner::Draw,
         _ => RoundWinner::Draw,
     }
 }
 
-fn format_move(m: &Option<RPSMove>) -> String {
+fn format_move(m: &Option<RockPaperScissorsMove>) -> String {
     match m {
-        Some(RPSMove::Rock) => "Rock".to_string(),
-        Some(RPSMove::Paper) => "Paper".to_string(),
-        Some(RPSMove::Scissors) => "Scissors".to_string(),
-        Some(RPSMove::Redacted) => "???".to_string(),
+        Some(RockPaperScissorsMove::Rock) => "Rock".to_string(),
+        Some(RockPaperScissorsMove::Paper) => "Paper".to_string(),
+        Some(RockPaperScissorsMove::Scissors) => "Scissors".to_string(),
+        Some(RockPaperScissorsMove::Redacted) => "???".to_string(),
         None => "---".to_string(),
     }
 }
 
 fn render_final_results(match_data: &Match, my_player_number: i32) {
-    if let Ok(game_state) = serde_json::from_value::<RPSGameState>(match_data.game_state.clone()) {
+    if let Ok(game_state) = serde_json::from_value::<RockPaperScissorsGameState>(match_data.game_state.clone()) {
         println!("{}", "  Final Results:".bold());
         println!();
 
@@ -263,7 +263,7 @@ fn render_final_results(match_data: &Match, my_player_number: i32) {
     }
 }
 
-fn extract_previous_rounds(game_state: &RPSGameState) -> Vec<RoundResult> {
+fn extract_previous_rounds(game_state: &RockPaperScissorsGameState) -> Vec<RoundResult> {
     game_state.rounds.iter()
         .filter(|(p1, p2)| p1.is_some() && p2.is_some())
         .map(|(p1, p2)| RoundResult {
@@ -366,7 +366,7 @@ fn handle_match_found_or_update(
     }
 
     // Parse game state
-    let game_state = serde_json::from_value::<RPSGameState>(match_data.game_state.clone())?;
+    let game_state = serde_json::from_value::<RockPaperScissorsGameState>(match_data.game_state.clone())?;
     let previous_rounds = extract_previous_rounds(&game_state);
 
     // Check current round status
@@ -411,7 +411,7 @@ fn handle_game_state_update(
     ui_state: &RockPaperScissorsUiState,
     opponent_disconnected: &mut bool,
 ) -> Option<RockPaperScissorsUiState> {
-    let game_state = serde_json::from_value::<RPSGameState>(match_data.game_state.clone()).ok()?;
+    let game_state = serde_json::from_value::<RockPaperScissorsGameState>(match_data.game_state.clone()).ok()?;
     let rounds = extract_previous_rounds(&game_state);
 
     match ui_state {
@@ -676,7 +676,7 @@ pub async fn resume_game(session: &mut SessionState, game_match: Match) -> Resul
         Some(2)
     };
 
-    let previous_rounds = if let Ok(game_state) = serde_json::from_value::<RPSGameState>(game_match.game_state.clone()) {
+    let previous_rounds = if let Ok(game_state) = serde_json::from_value::<RockPaperScissorsGameState>(game_match.game_state.clone()) {
         extract_previous_rounds(&game_state)
     } else {
         Vec::new()

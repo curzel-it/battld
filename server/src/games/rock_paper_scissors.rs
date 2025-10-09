@@ -1,18 +1,18 @@
-use battld_common::games::rock_paper_scissors::{PlayerSymbol, RPSGameState, RPSMove};
+use battld_common::games::{players::PlayerSymbol, rock_paper_scissors::{RockPaperScissorsGameState, RockPaperScissorsMove}};
 
 use super::GameError;
 
-/// Stateless RPS game engine
-pub struct RPSEngine;
+/// Stateless RockPaperScissors game engine
+pub struct RockPaperScissorsEngine;
 
-impl RPSEngine {
+impl RockPaperScissorsEngine {
     /// Update the game state with a player's move
     pub fn update(
         &self,
-        state: &RPSGameState,
+        state: &RockPaperScissorsGameState,
         player: PlayerSymbol,
-        move_choice: RPSMove,
-    ) -> Result<RPSGameState, GameError> {
+        move_choice: RockPaperScissorsMove,
+    ) -> Result<RockPaperScissorsGameState, GameError> {
         // Check game is not already finished
         if state.is_finished() {
             return Err(GameError::GameNotInProgress);
@@ -64,28 +64,28 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_rps_move_beats() {
+    fn test_rock_paper_scissors_move_beats() {
         // Rock beats scissors
-        assert_eq!(RPSMove::Rock.beats(&RPSMove::Scissors), Some(RPSMove::Rock));
-        assert_eq!(RPSMove::Scissors.beats(&RPSMove::Rock), Some(RPSMove::Rock));
+        assert_eq!(RockPaperScissorsMove::Rock.beats(&RockPaperScissorsMove::Scissors), Some(RockPaperScissorsMove::Rock));
+        assert_eq!(RockPaperScissorsMove::Scissors.beats(&RockPaperScissorsMove::Rock), Some(RockPaperScissorsMove::Rock));
 
         // Paper beats rock
-        assert_eq!(RPSMove::Paper.beats(&RPSMove::Rock), Some(RPSMove::Paper));
-        assert_eq!(RPSMove::Rock.beats(&RPSMove::Paper), Some(RPSMove::Paper));
+        assert_eq!(RockPaperScissorsMove::Paper.beats(&RockPaperScissorsMove::Rock), Some(RockPaperScissorsMove::Paper));
+        assert_eq!(RockPaperScissorsMove::Rock.beats(&RockPaperScissorsMove::Paper), Some(RockPaperScissorsMove::Paper));
 
         // Scissors beats paper
-        assert_eq!(RPSMove::Scissors.beats(&RPSMove::Paper), Some(RPSMove::Scissors));
-        assert_eq!(RPSMove::Paper.beats(&RPSMove::Scissors), Some(RPSMove::Scissors));
+        assert_eq!(RockPaperScissorsMove::Scissors.beats(&RockPaperScissorsMove::Paper), Some(RockPaperScissorsMove::Scissors));
+        assert_eq!(RockPaperScissorsMove::Paper.beats(&RockPaperScissorsMove::Scissors), Some(RockPaperScissorsMove::Scissors));
 
         // Draws
-        assert_eq!(RPSMove::Rock.beats(&RPSMove::Rock), None);
-        assert_eq!(RPSMove::Paper.beats(&RPSMove::Paper), None);
-        assert_eq!(RPSMove::Scissors.beats(&RPSMove::Scissors), None);
+        assert_eq!(RockPaperScissorsMove::Rock.beats(&RockPaperScissorsMove::Rock), None);
+        assert_eq!(RockPaperScissorsMove::Paper.beats(&RockPaperScissorsMove::Paper), None);
+        assert_eq!(RockPaperScissorsMove::Scissors.beats(&RockPaperScissorsMove::Scissors), None);
     }
 
     #[test]
     fn test_new_game_state() {
-        let state = RPSGameState::new();
+        let state = RockPaperScissorsGameState::new();
         assert_eq!(state.rounds.len(), 1);
         assert_eq!(state.rounds[0], (None, None));
         assert_eq!(state.current_round(), 1);
@@ -96,26 +96,26 @@ mod tests {
 
     #[test]
     fn test_valid_move_player1() {
-        let state = RPSGameState::new();
-        let engine = RPSEngine;
+        let state = RockPaperScissorsGameState::new();
+        let engine = RockPaperScissorsEngine;
 
-        let new_state = engine.update(&state, 1, RPSMove::Rock).unwrap();
+        let new_state = engine.update(&state, 1, RockPaperScissorsMove::Rock).unwrap();
 
-        assert_eq!(new_state.rounds[0].0, Some(RPSMove::Rock));
+        assert_eq!(new_state.rounds[0].0, Some(RockPaperScissorsMove::Rock));
         assert_eq!(new_state.rounds[0].1, None);
         assert!(!new_state.is_finished());
     }
 
     #[test]
     fn test_valid_move_player2() {
-        let mut state = RPSGameState::new();
-        state.rounds[0].0 = Some(RPSMove::Rock); // Player 1 already moved
+        let mut state = RockPaperScissorsGameState::new();
+        state.rounds[0].0 = Some(RockPaperScissorsMove::Rock); // Player 1 already moved
 
-        let engine = RPSEngine;
-        let new_state = engine.update(&state, 2, RPSMove::Scissors).unwrap();
+        let engine = RockPaperScissorsEngine;
+        let new_state = engine.update(&state, 2, RockPaperScissorsMove::Scissors).unwrap();
 
-        assert_eq!(new_state.rounds[0].0, Some(RPSMove::Rock));
-        assert_eq!(new_state.rounds[0].1, Some(RPSMove::Scissors));
+        assert_eq!(new_state.rounds[0].0, Some(RockPaperScissorsMove::Rock));
+        assert_eq!(new_state.rounds[0].1, Some(RockPaperScissorsMove::Scissors));
         // Round complete, player 1 won, new round should be added
         assert_eq!(new_state.rounds.len(), 2);
         assert_eq!(new_state.rounds[1], (None, None));
@@ -124,38 +124,38 @@ mod tests {
 
     #[test]
     fn test_duplicate_move_rejected() {
-        let mut state = RPSGameState::new();
-        state.rounds[0].0 = Some(RPSMove::Rock); // Player 1 already moved
+        let mut state = RockPaperScissorsGameState::new();
+        state.rounds[0].0 = Some(RockPaperScissorsMove::Rock); // Player 1 already moved
 
-        let engine = RPSEngine;
-        let result = engine.update(&state, 1, RPSMove::Paper);
+        let engine = RockPaperScissorsEngine;
+        let result = engine.update(&state, 1, RockPaperScissorsMove::Paper);
 
         assert!(matches!(result, Err(GameError::IllegalMove(_))));
     }
 
     #[test]
     fn test_round_completion_creates_new_round() {
-        let state = RPSGameState::new();
-        let engine = RPSEngine;
+        let state = RockPaperScissorsGameState::new();
+        let engine = RockPaperScissorsEngine;
 
         // Player 1 moves
-        let state = engine.update(&state, 1, RPSMove::Rock).unwrap();
+        let state = engine.update(&state, 1, RockPaperScissorsMove::Rock).unwrap();
         assert_eq!(state.rounds.len(), 1);
 
         // Player 2 moves - round completes
-        let state = engine.update(&state, 2, RPSMove::Scissors).unwrap();
+        let state = engine.update(&state, 2, RockPaperScissorsMove::Scissors).unwrap();
         assert_eq!(state.rounds.len(), 2); // New round added
         assert_eq!(state.rounds[1], (None, None));
     }
 
     #[test]
     fn test_draw_round() {
-        let state = RPSGameState::new();
-        let engine = RPSEngine;
+        let state = RockPaperScissorsGameState::new();
+        let engine = RockPaperScissorsEngine;
 
         // Both players choose rock - draw
-        let state = engine.update(&state, 1, RPSMove::Rock).unwrap();
-        let state = engine.update(&state, 2, RPSMove::Rock).unwrap();
+        let state = engine.update(&state, 1, RockPaperScissorsMove::Rock).unwrap();
+        let state = engine.update(&state, 2, RockPaperScissorsMove::Rock).unwrap();
 
         assert_eq!(state.get_score(), (0, 0)); // No one gets a point
         assert_eq!(state.rounds.len(), 2); // New round added
@@ -164,18 +164,18 @@ mod tests {
 
     #[test]
     fn test_player1_wins_2_0() {
-        let state = RPSGameState::new();
-        let engine = RPSEngine;
+        let state = RockPaperScissorsGameState::new();
+        let engine = RockPaperScissorsEngine;
 
         // Round 1: Player 1 wins (rock beats scissors)
-        let state = engine.update(&state, 1, RPSMove::Rock).unwrap();
-        let state = engine.update(&state, 2, RPSMove::Scissors).unwrap();
+        let state = engine.update(&state, 1, RockPaperScissorsMove::Rock).unwrap();
+        let state = engine.update(&state, 2, RockPaperScissorsMove::Scissors).unwrap();
         assert_eq!(state.get_score(), (1, 0));
         assert!(!state.is_finished());
 
         // Round 2: Player 1 wins (paper beats rock)
-        let state = engine.update(&state, 1, RPSMove::Paper).unwrap();
-        let state = engine.update(&state, 2, RPSMove::Rock).unwrap();
+        let state = engine.update(&state, 1, RockPaperScissorsMove::Paper).unwrap();
+        let state = engine.update(&state, 2, RockPaperScissorsMove::Rock).unwrap();
         assert_eq!(state.get_score(), (2, 0));
         assert!(state.is_finished());
         assert_eq!(state.get_winner(), Some(1));
@@ -186,22 +186,22 @@ mod tests {
 
     #[test]
     fn test_player2_wins_2_1() {
-        let state = RPSGameState::new();
-        let engine = RPSEngine;
+        let state = RockPaperScissorsGameState::new();
+        let engine = RockPaperScissorsEngine;
 
         // Round 1: Player 1 wins
-        let state = engine.update(&state, 1, RPSMove::Rock).unwrap();
-        let state = engine.update(&state, 2, RPSMove::Scissors).unwrap();
+        let state = engine.update(&state, 1, RockPaperScissorsMove::Rock).unwrap();
+        let state = engine.update(&state, 2, RockPaperScissorsMove::Scissors).unwrap();
         assert_eq!(state.get_score(), (1, 0));
 
         // Round 2: Player 2 wins
-        let state = engine.update(&state, 1, RPSMove::Scissors).unwrap();
-        let state = engine.update(&state, 2, RPSMove::Rock).unwrap();
+        let state = engine.update(&state, 1, RockPaperScissorsMove::Scissors).unwrap();
+        let state = engine.update(&state, 2, RockPaperScissorsMove::Rock).unwrap();
         assert_eq!(state.get_score(), (1, 1));
 
         // Round 3: Player 2 wins (gets 2 total)
-        let state = engine.update(&state, 1, RPSMove::Rock).unwrap();
-        let state = engine.update(&state, 2, RPSMove::Paper).unwrap();
+        let state = engine.update(&state, 1, RockPaperScissorsMove::Rock).unwrap();
+        let state = engine.update(&state, 2, RockPaperScissorsMove::Paper).unwrap();
         assert_eq!(state.get_score(), (1, 2));
         assert!(state.is_finished());
         assert_eq!(state.get_winner(), Some(2));
@@ -209,42 +209,42 @@ mod tests {
 
     #[test]
     fn test_game_already_finished() {
-        let mut state = RPSGameState::new();
+        let mut state = RockPaperScissorsGameState::new();
         // Manually create a finished game (2-0)
         state.rounds = vec![
-            (Some(RPSMove::Rock), Some(RPSMove::Scissors)),
-            (Some(RPSMove::Paper), Some(RPSMove::Rock)),
+            (Some(RockPaperScissorsMove::Rock), Some(RockPaperScissorsMove::Scissors)),
+            (Some(RockPaperScissorsMove::Paper), Some(RockPaperScissorsMove::Rock)),
         ];
 
         assert!(state.is_finished());
 
-        let engine = RPSEngine;
-        let result = engine.update(&state, 1, RPSMove::Rock);
+        let engine = RockPaperScissorsEngine;
+        let result = engine.update(&state, 1, RockPaperScissorsMove::Rock);
 
         assert!(matches!(result, Err(GameError::GameNotInProgress)));
     }
 
     #[test]
     fn test_invalid_player() {
-        let state = RPSGameState::new();
-        let engine = RPSEngine;
+        let state = RockPaperScissorsGameState::new();
+        let engine = RockPaperScissorsEngine;
 
-        let result = engine.update(&state, 3, RPSMove::Rock);
+        let result = engine.update(&state, 3, RockPaperScissorsMove::Rock);
         assert!(matches!(result, Err(GameError::InvalidPlayer)));
 
-        let result = engine.update(&state, 0, RPSMove::Rock);
+        let result = engine.update(&state, 0, RockPaperScissorsMove::Rock);
         assert!(matches!(result, Err(GameError::InvalidPlayer)));
     }
 
     #[test]
     fn test_state_immutability() {
-        let state = RPSGameState::new();
-        let engine = RPSEngine;
+        let state = RockPaperScissorsGameState::new();
+        let engine = RockPaperScissorsEngine;
 
         let original_rounds = state.rounds.clone();
 
         // Make a move
-        let _new_state = engine.update(&state, 1, RPSMove::Rock).unwrap();
+        let _new_state = engine.update(&state, 1, RockPaperScissorsMove::Rock).unwrap();
 
         // Original state should be unchanged
         assert_eq!(state.rounds, original_rounds);
@@ -253,31 +253,31 @@ mod tests {
 
     #[test]
     fn test_serialization_roundtrip() {
-        let mut state = RPSGameState::new();
+        let mut state = RockPaperScissorsGameState::new();
         state.rounds = vec![
-            (Some(RPSMove::Rock), Some(RPSMove::Scissors)),
-            (Some(RPSMove::Paper), None),
+            (Some(RockPaperScissorsMove::Rock), Some(RockPaperScissorsMove::Scissors)),
+            (Some(RockPaperScissorsMove::Paper), None),
         ];
 
         // Serialize to JSON
         let json = serde_json::to_value(&state).unwrap();
 
         // Deserialize back
-        let deserialized: RPSGameState = serde_json::from_value(json).unwrap();
+        let deserialized: RockPaperScissorsGameState = serde_json::from_value(json).unwrap();
 
         assert_eq!(state, deserialized);
     }
 
     #[test]
     fn test_many_draw_rounds() {
-        let state = RPSGameState::new();
-        let engine = RPSEngine;
+        let state = RockPaperScissorsGameState::new();
+        let engine = RockPaperScissorsEngine;
 
         // Create 5 draw rounds
         let mut state = state;
         for _ in 0..5 {
-            state = engine.update(&state, 1, RPSMove::Rock).unwrap();
-            state = engine.update(&state, 2, RPSMove::Rock).unwrap();
+            state = engine.update(&state, 1, RockPaperScissorsMove::Rock).unwrap();
+            state = engine.update(&state, 2, RockPaperScissorsMove::Rock).unwrap();
         }
 
         assert_eq!(state.get_score(), (0, 0));
@@ -285,12 +285,12 @@ mod tests {
         assert!(!state.is_finished());
 
         // Now player 1 wins 2 rounds
-        state = engine.update(&state, 1, RPSMove::Rock).unwrap();
-        state = engine.update(&state, 2, RPSMove::Scissors).unwrap();
+        state = engine.update(&state, 1, RockPaperScissorsMove::Rock).unwrap();
+        state = engine.update(&state, 2, RockPaperScissorsMove::Scissors).unwrap();
         assert_eq!(state.get_score(), (1, 0));
 
-        state = engine.update(&state, 1, RPSMove::Paper).unwrap();
-        state = engine.update(&state, 2, RPSMove::Rock).unwrap();
+        state = engine.update(&state, 1, RockPaperScissorsMove::Paper).unwrap();
+        state = engine.update(&state, 2, RockPaperScissorsMove::Rock).unwrap();
         assert_eq!(state.get_score(), (2, 0));
         assert!(state.is_finished());
         assert_eq!(state.get_winner(), Some(1));
@@ -298,16 +298,16 @@ mod tests {
 
     #[test]
     fn test_redact_for_player1() {
-        let mut state = RPSGameState::new();
+        let mut state = RockPaperScissorsGameState::new();
 
         // Round 1: Both players moved (completed round)
-        state.rounds[0] = (Some(RPSMove::Rock), Some(RPSMove::Paper));
+        state.rounds[0] = (Some(RockPaperScissorsMove::Rock), Some(RockPaperScissorsMove::Paper));
 
         // Round 2: Player 1 moved, player 2 hasn't
-        state.rounds.push((Some(RPSMove::Scissors), None));
+        state.rounds.push((Some(RockPaperScissorsMove::Scissors), None));
 
         // Round 3: Player 2 moved, player 1 hasn't
-        state.rounds.push((None, Some(RPSMove::Rock)));
+        state.rounds.push((None, Some(RockPaperScissorsMove::Rock)));
 
         // Round 4: No one moved yet
         state.rounds.push((None, None));
@@ -315,13 +315,13 @@ mod tests {
         let redacted = state.redact_for_player(1);
 
         // Round 1: Both moved, so both should be visible
-        assert_eq!(redacted.rounds[0], (Some(RPSMove::Rock), Some(RPSMove::Paper)));
+        assert_eq!(redacted.rounds[0], (Some(RockPaperScissorsMove::Rock), Some(RockPaperScissorsMove::Paper)));
 
         // Round 2: Player 1 moved but player 2 hasn't, p1 sees their move
-        assert_eq!(redacted.rounds[1], (Some(RPSMove::Scissors), None));
+        assert_eq!(redacted.rounds[1], (Some(RockPaperScissorsMove::Scissors), None));
 
         // Round 3: Player 2 moved but player 1 hasn't, p2's move should be redacted
-        assert_eq!(redacted.rounds[2], (None, Some(RPSMove::Redacted)));
+        assert_eq!(redacted.rounds[2], (None, Some(RockPaperScissorsMove::Redacted)));
 
         // Round 4: No one moved, both None
         assert_eq!(redacted.rounds[3], (None, None));
@@ -329,16 +329,16 @@ mod tests {
 
     #[test]
     fn test_redact_for_player2() {
-        let mut state = RPSGameState::new();
+        let mut state = RockPaperScissorsGameState::new();
 
         // Round 1: Both players moved (completed round)
-        state.rounds[0] = (Some(RPSMove::Rock), Some(RPSMove::Paper));
+        state.rounds[0] = (Some(RockPaperScissorsMove::Rock), Some(RockPaperScissorsMove::Paper));
 
         // Round 2: Player 1 moved, player 2 hasn't
-        state.rounds.push((Some(RPSMove::Scissors), None));
+        state.rounds.push((Some(RockPaperScissorsMove::Scissors), None));
 
         // Round 3: Player 2 moved, player 1 hasn't
-        state.rounds.push((None, Some(RPSMove::Rock)));
+        state.rounds.push((None, Some(RockPaperScissorsMove::Rock)));
 
         // Round 4: No one moved yet
         state.rounds.push((None, None));
@@ -346,13 +346,13 @@ mod tests {
         let redacted = state.redact_for_player(2);
 
         // Round 1: Both moved, so both should be visible
-        assert_eq!(redacted.rounds[0], (Some(RPSMove::Rock), Some(RPSMove::Paper)));
+        assert_eq!(redacted.rounds[0], (Some(RockPaperScissorsMove::Rock), Some(RockPaperScissorsMove::Paper)));
 
         // Round 2: Player 1 moved but player 2 hasn't, p1's move should be redacted
-        assert_eq!(redacted.rounds[1], (Some(RPSMove::Redacted), None));
+        assert_eq!(redacted.rounds[1], (Some(RockPaperScissorsMove::Redacted), None));
 
         // Round 3: Player 2 moved but player 1 hasn't, p2 sees their move
-        assert_eq!(redacted.rounds[2], (None, Some(RPSMove::Rock)));
+        assert_eq!(redacted.rounds[2], (None, Some(RockPaperScissorsMove::Rock)));
 
         // Round 4: No one moved, both None
         assert_eq!(redacted.rounds[3], (None, None));

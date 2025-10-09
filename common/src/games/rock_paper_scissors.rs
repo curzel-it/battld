@@ -1,28 +1,27 @@
 use serde::{Deserialize, Serialize};
 
-/// Type alias for player symbols (1 or 2)
-pub type PlayerSymbol = i32;
+use crate::games::players::PlayerSymbol;
 
 /// Represents a move in Rock-Paper-Scissors
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub enum RPSMove {
+pub enum RockPaperScissorsMove {
     Rock,
     Paper,
     Scissors,
     Redacted,
 }
 
-impl RPSMove {
+impl RockPaperScissorsMove {
     /// Determine winner: returns Some(winning_move) or None for draw
-    pub fn beats(&self, other: &RPSMove) -> Option<RPSMove> {
+    pub fn beats(&self, other: &RockPaperScissorsMove) -> Option<RockPaperScissorsMove> {
         match (self, other) {
-            (RPSMove::Rock, RPSMove::Scissors) => Some(*self),
-            (RPSMove::Paper, RPSMove::Rock) => Some(*self),
-            (RPSMove::Scissors, RPSMove::Paper) => Some(*self),
-            (RPSMove::Scissors, RPSMove::Rock) => Some(*other),
-            (RPSMove::Rock, RPSMove::Paper) => Some(*other),
-            (RPSMove::Paper, RPSMove::Scissors) => Some(*other),
+            (RockPaperScissorsMove::Rock, RockPaperScissorsMove::Scissors) => Some(*self),
+            (RockPaperScissorsMove::Paper, RockPaperScissorsMove::Rock) => Some(*self),
+            (RockPaperScissorsMove::Scissors, RockPaperScissorsMove::Paper) => Some(*self),
+            (RockPaperScissorsMove::Scissors, RockPaperScissorsMove::Rock) => Some(*other),
+            (RockPaperScissorsMove::Rock, RockPaperScissorsMove::Paper) => Some(*other),
+            (RockPaperScissorsMove::Paper, RockPaperScissorsMove::Scissors) => Some(*other),
             _ => None, // Draw
         }
     }
@@ -30,20 +29,20 @@ impl RPSMove {
 
 /// Represents the complete state of a Rock-Paper-Scissors game
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct RPSGameState {
+pub struct RockPaperScissorsGameState {
     /// List of rounds: each round is (player1_move, player2_move)
     /// None means the player hasn't submitted their move yet
-    pub rounds: Vec<(Option<RPSMove>, Option<RPSMove>)>,
+    pub rounds: Vec<(Option<RockPaperScissorsMove>, Option<RockPaperScissorsMove>)>,
 }
 
-impl Default for RPSGameState {
+impl Default for RockPaperScissorsGameState {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl RPSGameState {
-    /// Create a new RPS game with initial round
+impl RockPaperScissorsGameState {
+    /// Create a new RockPaperScissors game with initial round
     pub fn new() -> Self {
         Self {
             rounds: vec![(None, None)],
@@ -109,7 +108,7 @@ impl RPSGameState {
                     let redacted_p2 = if p1_move.is_some() && p2_move.is_some() {
                         *p2_move // Both moves in, show actual move
                     } else if p2_move.is_some() {
-                        Some(RPSMove::Redacted) // Only p2 moved, hide it
+                        Some(RockPaperScissorsMove::Redacted) // Only p2 moved, hide it
                     } else {
                         None // p2 hasn't moved yet
                     };
@@ -120,7 +119,7 @@ impl RPSGameState {
                     let redacted_p1 = if p1_move.is_some() && p2_move.is_some() {
                         *p1_move // Both moves in, show actual move
                     } else if p1_move.is_some() {
-                        Some(RPSMove::Redacted) // Only p1 moved, hide it
+                        Some(RockPaperScissorsMove::Redacted) // Only p1 moved, hide it
                     } else {
                         None // p1 hasn't moved yet
                     };
@@ -137,7 +136,7 @@ impl RPSGameState {
 
     /// Compute the winner of a specific round
     #[allow(dead_code)]
-    pub fn compute_round_winner(p1_move: RPSMove, p2_move: RPSMove) -> Option<PlayerSymbol> {
+    pub fn compute_round_winner(p1_move: RockPaperScissorsMove, p2_move: RockPaperScissorsMove) -> Option<PlayerSymbol> {
         match p1_move.beats(&p2_move) {
             Some(winner) => {
                 if winner == p1_move {

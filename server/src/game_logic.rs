@@ -662,7 +662,7 @@ mod tests {
             _ => panic!("Expected WaitingForOpponent message"),
         }
 
-        // Player 2 joins RPS matchmaking (different game type)
+        // Player 2 joins RockPaperScissors matchmaking (different game type)
         let messages2 = handle_join_matchmaking_logic(p2, GameType::RockPaperScissors, &db).await;
 
         // Should also be waiting (not matched with player 1)

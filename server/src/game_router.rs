@@ -1,5 +1,5 @@
 use crate::games::{tic_tac_toe::*, rock_paper_scissors::*, GameError};
-use battld_common::games::{game_type::GameType, matches::{Match, MatchOutcome}, rock_paper_scissors::{RPSGameState, RPSMove}};
+use battld_common::games::{game_type::GameType, matches::{Match, MatchOutcome}, rock_paper_scissors::{RockPaperScissorsGameState, RockPaperScissorsMove}};
 use serde_json::Value as JsonValue;
 use rand::Rng;
 
@@ -18,7 +18,7 @@ pub fn handle_game_move(
 ) -> Result<GameMoveResult, GameError> {
     match game_match.game_type {
         GameType::TicTacToe => handle_tic_tac_toe_move(game_match, player_id, move_data),
-        GameType::RockPaperScissors => handle_rps_move(game_match, player_id, move_data),
+        GameType::RockPaperScissors => handle_rock_paper_scissors_move(game_match, player_id, move_data),
     }
 }
 
@@ -46,8 +46,8 @@ pub fn redact_match_for_player(match_data: &Match, player_id: i64) -> Match {
             }
         }
         GameType::RockPaperScissors => {
-            // Deserialize, redact, and serialize RPS state
-            match serde_json::from_value::<RPSGameState>(match_data.game_state.clone()) {
+            // Deserialize, redact, and serialize RockPaperScissors state
+            match serde_json::from_value::<RockPaperScissorsGameState>(match_data.game_state.clone()) {
                 Ok(state) => {
                     let redacted = state.redact_for_player(player_num);
                     serde_json::to_value(&redacted).unwrap_or(match_data.game_state.clone())
@@ -85,7 +85,7 @@ pub fn initialize_game_state(game_type: &GameType) -> String {
             serde_json::to_string(&state).unwrap()
         }
         GameType::RockPaperScissors => {
-            let state = RPSGameState::new();
+            let state = RockPaperScissorsGameState::new();
             serde_json::to_string(&state).unwrap()
         }
     }
@@ -139,22 +139,22 @@ fn handle_tic_tac_toe_move(
     })
 }
 
-fn handle_rps_move(
+fn handle_rock_paper_scissors_move(
     game_match: &Match,
     player_id: i64,
     move_data: JsonValue,
 ) -> Result<GameMoveResult, GameError> {
     // Deserialize the current game state from JSON
-    let current_state: RPSGameState = serde_json::from_value(game_match.game_state.clone())
+    let current_state: RockPaperScissorsGameState = serde_json::from_value(game_match.game_state.clone())
         .map_err(|e| GameError::IllegalMove(format!("Invalid game state: {e}")))?;
 
     // Deserialize the move data - expects {"choice": "rock"|"paper"|"scissors"}
     #[derive(serde::Deserialize)]
-    struct RPSMoveData {
-        choice: RPSMove,
+    struct RockPaperScissorsMoveData {
+        choice: RockPaperScissorsMove,
     }
 
-    let move_data: RPSMoveData = serde_json::from_value(move_data)
+    let move_data: RockPaperScissorsMoveData = serde_json::from_value(move_data)
         .map_err(|e| GameError::IllegalMove(format!("Invalid move data: {e}")))?;
 
     // Determine which player symbol this player is
@@ -166,8 +166,8 @@ fn handle_rps_move(
         return Err(GameError::InvalidPlayer);
     };
 
-    // Call the RPS engine to process the move
-    let engine = RPSEngine;
+    // Call the RockPaperScissors engine to process the move
+    let engine = RockPaperScissorsEngine;
     let new_state = engine.update(&current_state, player_symbol, move_data.choice)?;
 
     // Serialize the new state back to JSON
@@ -271,9 +271,9 @@ mod tests {
     }
 
     #[test]
-    fn test_rps_valid_move() {
-        // Create initial RPS state
-        let initial_state = RPSGameState::new();
+    fn test_rock_paper_scissors_valid_move() {
+        // Create initial RockPaperScissors state
+        let initial_state = RockPaperScissorsGameState::new();
         let state_json = serde_json::to_value(&initial_state).unwrap();
 
         let game_match = Match {
@@ -294,8 +294,8 @@ mod tests {
         assert!(result.outcome.is_none());
 
         // Verify the state was updated (player 1's move should be recorded)
-        let new_state: RPSGameState = serde_json::from_value(result.new_state).unwrap();
-        assert_eq!(new_state.rounds[0].0, Some(RPSMove::Rock));
+        let new_state: RockPaperScissorsGameState = serde_json::from_value(result.new_state).unwrap();
+        assert_eq!(new_state.rounds[0].0, Some(RockPaperScissorsMove::Rock));
         assert_eq!(new_state.rounds[0].1, None); // Player 2 hasn't moved yet
     }
 }

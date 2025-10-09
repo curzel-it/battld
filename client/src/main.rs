@@ -75,7 +75,7 @@ async fn start_app(config_path: &str) -> Result<(), Box<dyn std::error::Error>> 
                     wait_for_keypress()?;
                 }
             }
-            MenuChoice::StartRPS => {
+            MenuChoice::StartRockPaperScissors => {
                 // Start Rock-Paper-Scissors game flow
                 if let Err(e) = start_game_flow(&mut session, GameType::RockPaperScissors).await {
                     println!("{}", format!("Game error: {e}").red());
@@ -109,7 +109,7 @@ async fn start_app(config_path: &str) -> Result<(), Box<dyn std::error::Error>> 
 
 enum MenuChoice {
     StartTicTacToe,
-    StartRPS,
+    StartRockPaperScissors,
     Stats,
     Leaderboard,
     Exit,
@@ -159,7 +159,7 @@ async fn read_menu_choice(_session: &mut SessionState) -> io::Result<MenuChoice>
                 let choice = line.trim();
                 match choice {
                     "1" => return Ok(MenuChoice::StartTicTacToe),
-                    "2" => return Ok(MenuChoice::StartRPS),
+                    "2" => return Ok(MenuChoice::StartRockPaperScissors),
                     "3" => return Ok(MenuChoice::Stats),
                     "4" => return Ok(MenuChoice::Leaderboard),
                     "5" => return Ok(MenuChoice::Exit),

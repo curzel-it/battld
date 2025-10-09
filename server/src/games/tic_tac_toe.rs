@@ -1,8 +1,6 @@
 use super::GameError;
+use battld_common::games::players::PlayerSymbol;
 use serde::{Deserialize, Serialize};
-
-/// Type alias for player symbols (1 or 2)
-pub type PlayerSymbol = i32;
 
 /// Represents a move in tic-tac-toe
 #[derive(Debug, Clone, Serialize, Deserialize)]

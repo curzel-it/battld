@@ -1,4 +1,4 @@
-use battld_common::{games::{game_type::GameType, matches::{Match, MatchEndReason, MatchOutcome}, tic_tac_toe::GameState}, *};
+use battld_common::{games::{game_type::GameType, matches::{Match, MatchEndReason, MatchOutcome}, tic_tac_toe::TicTacToeGameState}, *};
 use crate::state::SessionState;
 use std::io::{self, Write};
 use tokio::io::AsyncBufReadExt;
@@ -107,7 +107,7 @@ impl TicTacToeUiState {
 }
 
 fn render_game_board(match_data: &Match, my_player_number: i32) {
-    if let Ok(game_state) = serde_json::from_value::<GameState>(match_data.game_state.clone()) {
+    if let Ok(game_state) = serde_json::from_value::<TicTacToeGameState>(match_data.game_state.clone()) {
         println!("  You are: {}", if my_player_number == 1 { "X".bright_blue() } else { "O".bright_magenta() });
         println!();
 
@@ -225,7 +225,7 @@ fn handle_match_found_or_update(
     }
 
     // Parse game state to determine whose turn it is
-    let game_state = serde_json::from_value::<GameState>(match_data.game_state.clone())?;
+    let game_state = serde_json::from_value::<TicTacToeGameState>(match_data.game_state.clone())?;
 
     let was_opponent_turn = matches!(
         ui_state,
@@ -281,7 +281,7 @@ fn handle_user_input(
 
     // Validate cell is not already occupied
     if let TicTacToeUiState::MyTurn(match_data) = ui_state {
-        if let Ok(game_state) = serde_json::from_value::<GameState>(match_data.game_state.clone()) {
+        if let Ok(game_state) = serde_json::from_value::<TicTacToeGameState>(match_data.game_state.clone()) {
             let index = row * 3 + col;
             if game_state.board[index] != 0 {
                 println!("{}", "Invalid move. That cell is already occupied.".red());
@@ -448,7 +448,7 @@ pub async fn resume_game(session: &SessionState, game_match: Match) -> Result<()
 
     let my_number = Some(if game_match.player1_id == my_player_id { 1 } else { 2 });
 
-    let initial_state = if let Ok(game_state) = serde_json::from_value::<GameState>(game_match.game_state.clone()) {
+    let initial_state = if let Ok(game_state) = serde_json::from_value::<TicTacToeGameState>(game_match.game_state.clone()) {
         if game_state.current_player == my_number.unwrap() && !game_state.is_finished {
             TicTacToeUiState::MyTurn(game_match.clone())
         } else {

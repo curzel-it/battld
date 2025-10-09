@@ -1,28 +1,16 @@
 use serde::{Deserialize, Serialize};
 
-/// Represents the state of a single cell in the tic-tac-toe board
-/// 0 = empty, 1 = player1, 2 = player2
-pub type CellState = i32;
+pub type TitTacToeCellState = i32;
 
-/// Represents the 3x3 tic-tac-toe game board as a flat array of 9 cells
-/// Index mapping: [0,1,2,3,4,5,6,7,8]
-/// Visual layout:
-/// ```text
-/// 0 | 1 | 2
-/// ---------
-/// 3 | 4 | 5
-/// ---------
-/// 6 | 7 | 8
-/// ```
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct GameState {
-    pub board: [CellState; 9],
+pub struct TicTacToeGameState {
+    pub board: [TitTacToeCellState; 9],
     pub current_player: i32,
     pub winner: Option<i32>,
     pub is_finished: bool,
 }
 
-impl GameState {
+impl TicTacToeGameState {
     pub fn new() -> Self {
         Self {
             board: [0; 9],
@@ -92,7 +80,7 @@ impl GameState {
     }
 }
 
-impl Default for GameState {
+impl Default for TicTacToeGameState {
     fn default() -> Self {
         Self::new()
     }
@@ -104,19 +92,19 @@ mod tests {
 
     #[test]
     fn test_coords_to_index() {
-        assert_eq!(GameState::coords_to_index(0, 0), Some(0));
-        assert_eq!(GameState::coords_to_index(0, 1), Some(1));
-        assert_eq!(GameState::coords_to_index(0, 2), Some(2));
-        assert_eq!(GameState::coords_to_index(1, 0), Some(3));
-        assert_eq!(GameState::coords_to_index(1, 1), Some(4));
-        assert_eq!(GameState::coords_to_index(2, 2), Some(8));
-        assert_eq!(GameState::coords_to_index(3, 0), None);
-        assert_eq!(GameState::coords_to_index(0, 3), None);
+        assert_eq!(TicTacToeGameState::coords_to_index(0, 0), Some(0));
+        assert_eq!(TicTacToeGameState::coords_to_index(0, 1), Some(1));
+        assert_eq!(TicTacToeGameState::coords_to_index(0, 2), Some(2));
+        assert_eq!(TicTacToeGameState::coords_to_index(1, 0), Some(3));
+        assert_eq!(TicTacToeGameState::coords_to_index(1, 1), Some(4));
+        assert_eq!(TicTacToeGameState::coords_to_index(2, 2), Some(8));
+        assert_eq!(TicTacToeGameState::coords_to_index(3, 0), None);
+        assert_eq!(TicTacToeGameState::coords_to_index(0, 3), None);
     }
 
     #[test]
     fn test_place_move() {
-        let mut state = GameState::new();
+        let mut state = TicTacToeGameState::new();
         assert!(state.place_move(0, 1).is_ok());
         assert_eq!(state.board[0], 1);
 
@@ -126,28 +114,28 @@ mod tests {
 
     #[test]
     fn test_check_winner_row() {
-        let mut state = GameState::new();
+        let mut state = TicTacToeGameState::new();
         state.board = [1, 1, 1, 0, 0, 0, 0, 0, 0];
         assert_eq!(state.check_winner(), Some(1));
     }
 
     #[test]
     fn test_check_winner_column() {
-        let mut state = GameState::new();
+        let mut state = TicTacToeGameState::new();
         state.board = [2, 0, 0, 2, 0, 0, 2, 0, 0];
         assert_eq!(state.check_winner(), Some(2));
     }
 
     #[test]
     fn test_check_winner_diagonal() {
-        let mut state = GameState::new();
+        let mut state = TicTacToeGameState::new();
         state.board = [1, 0, 0, 0, 1, 0, 0, 0, 1];
         assert_eq!(state.check_winner(), Some(1));
     }
 
     #[test]
     fn test_is_full() {
-        let mut state = GameState::new();
+        let mut state = TicTacToeGameState::new();
         assert!(!state.is_full());
 
         state.board = [1, 2, 1, 2, 1, 2, 2, 1, 2];
