@@ -449,7 +449,7 @@ pub async fn resume_game(session: &SessionState, game_match: Match) -> Result<()
     let my_number = Some(if game_match.player1_id == my_player_id { 1 } else { 2 });
 
     let initial_state = if let Ok(game_state) = serde_json::from_value::<TicTacToeGameState>(game_match.game_state.clone()) {
-        if game_state.current_player == my_number.is_some() && !game_state.is_finished {
+        if Some(game_state.current_player) == my_number && !game_state.is_finished {
             TicTacToeUiState::MyTurn(game_match.clone())
         } else {
             TicTacToeUiState::OpponentTurn(game_match.clone())
