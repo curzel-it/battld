@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use games::game_type::GameType;
+use crate::games::game_type::GameType;
 
 /// Represents a tris match
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -22,6 +22,14 @@ pub enum MatchOutcome {
     Player2Win,
     #[serde(rename = "draw")]
     Draw,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub enum MatchEndReason {
+    #[serde(rename = "ended")]
+    Ended,
+    #[serde(rename = "disconnection")]
+    Disconnection,
 }
 
 impl fmt::Display for MatchOutcome {

@@ -1,5 +1,5 @@
 use crate::games::{tic_tac_toe::*, rock_paper_scissors::*, GameError};
-use battld_common::{GameType, Match, MatchOutcome, RPSGameState, RPSMove};
+use battld_common::games::{game_type::GameType, matches::{Match, MatchOutcome}, rock_paper_scissors::{RPSGameState, RPSMove}};
 use serde_json::Value as JsonValue;
 use rand::Rng;
 
@@ -195,7 +195,7 @@ fn handle_rps_move(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use battld_common::GameType;
+    use GameType;
 
     #[test]
     fn test_tic_tac_toe_valid_move() {

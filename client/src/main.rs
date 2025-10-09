@@ -9,10 +9,12 @@ pub mod ui;
 pub mod utils;
 pub mod websocket;
 
+use std::io;
+
+use battld_common::games::{game_type::GameType, matches::Match};
 use colored::*;
 use crossterm::{event::{self, Event}, terminal};
 use rustyline::DefaultEditor;
-use std::io::{self, Write};
 
 use auth::try_auto_login;
 use leaderboard::*;
@@ -20,6 +22,8 @@ use state::*;
 use stats::*;
 use ui::*;
 use utils::VERSION;
+
+use crate::games::{rock_paper_scissors, tic_tac_toe};
 
 #[tokio::main]
 async fn main() {
@@ -65,7 +69,7 @@ async fn start_app(config_path: &str) -> Result<(), Box<dyn std::error::Error>> 
         match read_menu_choice(&mut session).await? {
             MenuChoice::StartTicTacToe => {
                 // Start TicTacToe game flow
-                if let Err(e) = start_game_flow(&mut session, battld_common::GameType::TicTacToe).await {
+                if let Err(e) = start_game_flow(&mut session, GameType::TicTacToe).await {
                     println!("{}", format!("Game error: {e}").red());
                     println!("\nPress any key to return to menu...");
                     wait_for_keypress()?;
@@ -73,7 +77,7 @@ async fn start_app(config_path: &str) -> Result<(), Box<dyn std::error::Error>> 
             }
             MenuChoice::StartRPS => {
                 // Start Rock-Paper-Scissors game flow
-                if let Err(e) = start_game_flow(&mut session, battld_common::GameType::RockPaperScissors).await {
+                if let Err(e) = start_game_flow(&mut session, GameType::RockPaperScissors).await {
                     println!("{}", format!("Game error: {e}").red());
                     println!("\nPress any key to return to menu...");
                     wait_for_keypress()?;
@@ -199,10 +203,10 @@ async fn check_and_handle_resumable_match(session: &mut SessionState) -> Result<
             // Route to correct game based on game_type
             match game_match.game_type {
                 GameType::TicTacToe => {
-                    games::tic_tac_toe::resume_game(session, game_match).await?;
+                    tic_tac_toe::resume_game(session, game_match).await?;
                 }
                 GameType::RockPaperScissors => {
-                    games::rock_paper_scissors::resume_game(session, game_match).await?;
+                    rock_paper_scissors::resume_game(session, game_match).await?;
                 }
             }
 
@@ -213,7 +217,7 @@ async fn check_and_handle_resumable_match(session: &mut SessionState) -> Result<
     Ok(())
 }
 
-async fn wait_for_game_state(ws_client: &crate::websocket::WebSocketClient) -> Result<battld_common::Match, Box<dyn std::error::Error>> {
+async fn wait_for_game_state(ws_client: &crate::websocket::WebSocketClient) -> Result<Match, Box<dyn std::error::Error>> {
     use battld_common::*;
 
     loop {
@@ -229,12 +233,12 @@ async fn wait_for_game_state(ws_client: &crate::websocket::WebSocketClient) -> R
     }
 }
 
-async fn start_game_flow(session: &mut SessionState, game_type: battld_common::GameType) -> Result<(), Box<dyn std::error::Error>> {
+async fn start_game_flow(session: &mut SessionState, game_type: GameType) -> Result<(), Box<dyn std::error::Error>> {
     clear_screen()?;
 
     let game_name = match game_type {
-        battld_common::GameType::TicTacToe => "Tic-Tac-Toe",
-        battld_common::GameType::RockPaperScissors => "Rock-Paper-Scissors",
+        GameType::TicTacToe => "Tic-Tac-Toe",
+        GameType::RockPaperScissors => "Rock-Paper-Scissors",
     };
 
     println!("\n{}", format!("Starting {game_name} matchmaking...").cyan());
@@ -242,8 +246,8 @@ async fn start_game_flow(session: &mut SessionState, game_type: battld_common::G
 
     // Route to appropriate game module
     match game_type {
-        battld_common::GameType::TicTacToe => games::tic_tac_toe::start_game(session, game_type).await?,
-        battld_common::GameType::RockPaperScissors => games::rock_paper_scissors::start_game(session, game_type).await?,
+        GameType::TicTacToe => games::tic_tac_toe::start_game(session, game_type).await?,
+        GameType::RockPaperScissors => games::rock_paper_scissors::start_game(session, game_type).await?,
     }
 
     Ok(())

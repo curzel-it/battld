@@ -52,7 +52,7 @@ pub mod auth {
 
 /// Player data API calls
 pub mod player {
-    use battld_common::{HEADER_AUTH, HEADER_PLAYER_ID};
+    use battld_common::{games::matches::Match, HEADER_AUTH, HEADER_PLAYER_ID};
 
     use super::*;
 
@@ -68,7 +68,7 @@ pub mod player {
         crate::api::auth::test_authentication(server_url, player_id, token).await
     }
 
-    pub async fn fetch_active_matches(session: &SessionState) -> std::result::Result<Vec<battld_common::Match>, Box<dyn std::error::Error>> {
+    pub async fn fetch_active_matches(session: &SessionState) -> std::result::Result<Vec<Match>, Box<dyn std::error::Error>> {
         if !session.is_authenticated {
             return Err("Not authenticated".into());
         }
@@ -93,7 +93,7 @@ pub mod player {
         }
 
         let response_text = response.text().await?;
-        let matches: Vec<battld_common::Match> = serde_json::from_str(&response_text)?;
+        let matches: Vec<Match> = serde_json::from_str(&response_text)?;
         Ok(matches)
     }
 

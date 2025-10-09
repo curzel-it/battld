@@ -1,4 +1,4 @@
-use battld_common::{MatchOutcome, MatchEndReason, ServerMessage, GameType};
+use battld_common::{games::{game_type::GameType, matches::{MatchEndReason, MatchOutcome}}, ServerMessage};
 use crate::database::Database;
 use crate::game_router;
 

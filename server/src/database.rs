@@ -1,4 +1,5 @@
 use sqlx::{SqlitePool, FromRow};
+use battld_common::games::{game_type::GameType, matches::{Match, MatchOutcome}};
 
 #[derive(Clone)]
 pub struct Database {
@@ -26,9 +27,7 @@ pub struct MatchRecord {
 }
 
 impl MatchRecord {
-    pub fn to_match(&self) -> Option<battld_common::Match> {
-        use battld_common::{GameType, Match, MatchOutcome};
-
+    pub fn to_match(&self) -> Option<Match> {
         let game_type = GameType::from_string(&self.game_type)?;
         let game_state: serde_json::Value = serde_json::from_str(&self.game_state).ok()?;
         let outcome = self.outcome.as_ref().and_then(|s| MatchOutcome::from_string(s));

@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
-use games::game_type::GameType;
-use games::matches::{Match, MatchOutcome};
+use crate::games::{game_type::GameType, matches::{Match, MatchEndReason}};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct CreatePlayerRequest {
@@ -16,14 +15,6 @@ pub struct TrisMoveRequest {
 }
 
 // WebSocket message types
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub enum MatchEndReason {
-    #[serde(rename = "ended")]
-    Ended,
-    #[serde(rename = "disconnection")]
-    Disconnection,
-}
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(tag = "type")]

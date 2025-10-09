@@ -1,5 +1,6 @@
+use battld_common::games::rock_paper_scissors::{PlayerSymbol, RPSGameState, RPSMove};
+
 use super::GameError;
-use battld_common::{RPSGameState, RPSMove, PlayerSymbol};
 
 /// Stateless RPS game engine
 pub struct RPSEngine;

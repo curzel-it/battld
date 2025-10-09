@@ -11,7 +11,7 @@ use tokio::sync::{mpsc, RwLock};
 use tokio::task::AbortHandle;
 use tokio::time::{Duration, sleep};
 
-use battld_common::{ClientMessage, ServerMessage};
+use battld_common::{games::game_type::GameType, ClientMessage, ServerMessage};
 use crate::{database::Database, AppState, game_logic};
 use crate::game_logic::OutgoingMessage;
 
@@ -293,7 +293,7 @@ async fn handle_resume_match(player_id: i64, db: &Arc<Database>, registry: &Shar
 }
 
 /// Handle matchmaking request
-async fn handle_join_matchmaking(player_id: i64, game_type: battld_common::GameType, db: &Arc<Database>, registry: &SharedRegistry) {
+async fn handle_join_matchmaking(player_id: i64, game_type: GameType, db: &Arc<Database>, registry: &SharedRegistry) {
     let messages = game_logic::handle_join_matchmaking_logic(player_id, game_type, db).await;
     registry.send_messages(messages).await;
 }

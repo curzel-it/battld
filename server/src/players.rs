@@ -2,7 +2,7 @@ use axum::{
     extract::{State, Json},
     http::{StatusCode, HeaderMap},
 };
-use battld_common::*;
+use battld_common::{games::matches::Match, *};
 
 use crate::{repository, auth, AppState};
 

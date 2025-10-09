@@ -1,4 +1,5 @@
-use battld_common::{ClientMessage, ServerMessage, Match};
+use battld_common::games::matches::Match;
+use battld_common::{ClientMessage, ServerMessage};
 use futures_util::{SinkExt, StreamExt};
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};

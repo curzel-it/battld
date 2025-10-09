@@ -1,4 +1,4 @@
-use battld_common::*;
+use battld_common::{games::{game_type::GameType, matches::{Match, MatchEndReason, MatchOutcome}, tic_tac_toe::GameState}, *};
 use crate::state::SessionState;
 use std::io::{self, Write};
 use tokio::io::AsyncBufReadExt;
