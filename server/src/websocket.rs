@@ -99,8 +99,13 @@ impl ConnectionRegistry {
         // Cancel any existing timer for this player
         self.cancel_disconnect_timer(player_id).await;
 
+        let timeout_seconds = std::env::var("DISCONNECT_TIMEOUT_SECONDS")
+            .ok()
+            .and_then(|s| s.parse::<u64>().ok())
+            .unwrap_or(10);
+
         let timer_task = tokio::spawn(async move {
-            sleep(Duration::from_secs(10)).await;
+            sleep(Duration::from_secs(timeout_seconds)).await;
             println!("Disconnect timer expired for player {player_id} in match {match_id}");
             handle_disconnect_timeout(player_id, match_id, &db, &registry).await;
         });
@@ -110,7 +115,7 @@ impl ConnectionRegistry {
             match_id,
             timer_handle: timer_task.abort_handle(),
         });
-        println!("Started 10s disconnect timer for player {player_id} in match {match_id}");
+        println!("Started {timeout_seconds}s disconnect timer for player {player_id} in match {match_id}");
     }
 
     /// Cancel a disconnect timer for a player (they reconnected)
