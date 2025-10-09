@@ -12,11 +12,17 @@ pub struct Config {
 
 impl Default for Config {
     fn default() -> Self {
+        // Try to load .env file (ignore errors if it doesn't exist)
+        let _ = dotenvy::dotenv();
+
+        let server_url = std::env::var("SERVER_URL")
+            .unwrap_or_else(|_| "http://127.0.0.1:3000".to_string());
+
         Config {
             player_id: None,
             private_key_path: Some("private_key.pem".to_string()),
             public_key_path: Some("public_key.pem".to_string()),
-            server_url: Some("http://127.0.0.1:8080".to_string()),
+            server_url: Some(server_url),
         }
     }
 }
