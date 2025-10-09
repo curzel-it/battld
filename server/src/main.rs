@@ -86,7 +86,11 @@ async fn main() {
     db.initialize().await.expect("Failed to initialize database schema");
     println!("Database initialized successfully");
 
-    server_init::seed_users(db.pool()).await.expect("Failed to seed users");
+    // Optionally seed fake users and matches for development/testing
+    if std::env::var("SEED_DATABASE").ok().as_deref() == Some("true") {
+        println!("SEED_DATABASE=true, seeding database...");
+        server_init::seed_users(db.pool()).await.expect("Failed to seed users");
+    }
 
     let state = AppState {
         db: Arc::new(db),
