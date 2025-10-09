@@ -3,6 +3,7 @@ use axum::{
     http::StatusCode,
 };
 use std::time::{SystemTime, UNIX_EPOCH};
+use subtle::ConstantTimeEq;
 use crate::{AppState, repository};
 use battld_common::api::*;
 
@@ -14,7 +15,8 @@ pub async fn request_challenge(
         .await
         .ok_or(StatusCode::NOT_FOUND)?;
 
-    if player_record.public_key_hint != request.public_key_hint {
+    // Constant-time comparison to prevent timing attacks
+    if player_record.public_key_hint.as_bytes().ct_eq(request.public_key_hint.as_bytes()).unwrap_u8() != 1 {
         return Err(StatusCode::UNAUTHORIZED);
     }
 

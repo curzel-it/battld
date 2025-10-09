@@ -3,7 +3,7 @@ use std::collections::hash_map::Entry;
 use std::sync::Arc;
 use std::time::{SystemTime, Duration};
 use tokio::sync::RwLock;
-use rand::{Rng, thread_rng};
+use rand::{Rng, rngs::OsRng};
 use rand::distributions::Alphanumeric;
 
 #[derive(Clone)]
@@ -76,7 +76,7 @@ impl NonceCache {
 }
 
 fn generate_secure_random_string(len: usize) -> String {
-    thread_rng()
+    OsRng
         .sample_iter(&Alphanumeric)
         .take(len)
         .map(char::from)

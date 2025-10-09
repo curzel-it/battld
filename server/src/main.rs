@@ -8,9 +8,11 @@ use axum::{
 };
 use std::{sync::Arc, path::PathBuf, net::SocketAddr};
 use tower_http::services::ServeDir;
+use tower_http::cors::{CorsLayer, Any};
 
 mod auth;
 mod auth_endpoints;
+mod csrf_protection;
 mod database;
 mod game_logic;
 mod game_router;
@@ -145,11 +147,19 @@ async fn main() {
         .layer(rate_limit::create_rate_limiter())
         .with_state(state.clone());
 
+    // Configure CORS to allow all origins (for "bring your own client" architecture)
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods(Any)
+        .allow_headers(Any);
+
     let app = Router::new()
         .route("/", get(serve_index))
         .merge(api_routes)
         .route("/ws", get(websocket::ws_handler))
         .nest_service("/static", ServeDir::new(static_dir))
+        .layer(cors)
+        .layer(middleware::from_fn(csrf_protection::csrf_protection_middleware))
         .layer(middleware::from_fn(log_request_middleware))
         .with_state(state);
 

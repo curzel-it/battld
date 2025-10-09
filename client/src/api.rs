@@ -26,7 +26,12 @@ pub mod auth {
         let client = reqwest::Client::new();
         let url = format!("{server_url}/player");
 
-        let response = client.post(&url).json(&request).send().await?;
+        let response = client
+            .post(&url)
+            .header("x-battld-client", "true")
+            .json(&request)
+            .send()
+            .await?;
         let response_text = response.text().await?;
 
         let player: battld_common::Player = serde_json::from_str(&response_text)?;
@@ -48,6 +53,7 @@ pub mod auth {
 
         let response = client
             .post(&url)
+            .header("x-battld-client", "true")
             .json(&request)
             .send()
             .await?;
@@ -76,6 +82,7 @@ pub mod auth {
 
         let response = client
             .post(&url)
+            .header("x-battld-client", "true")
             .json(&request)
             .send()
             .await?;

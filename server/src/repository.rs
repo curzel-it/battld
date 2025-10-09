@@ -31,7 +31,7 @@ impl PlayerRecord {
         Player {
             id: self.id,
             public_key_hint: self.public_key_hint.clone(),
-            public_key: self.public_key.clone(),
+            public_key: "redacted".to_string(),
             name: self.name.clone(),
             score: self.score,
         }
