@@ -29,20 +29,6 @@ enum RockPaperScissorsUiState {
     MatchEndedOpponentDisconnected(Match),
 }
 
-/// Game state for Rock-Paper-Scissors
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct RPSGameState {
-    pub rounds: Vec<(Option<RPSMove>, Option<RPSMove>)>,
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum RPSMove {
-    Rock,
-    Paper,
-    Scissors,
-    Redacted,
-}
 
 impl RockPaperScissorsUiState {
     fn render(&self, my_player_number: i32) {

@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
-use crate::Match;
+use games::game_type::GameType;
+use games::matches::{Match, MatchOutcome};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct CreatePlayerRequest {
@@ -30,7 +31,7 @@ pub enum ClientMessage {
     #[serde(rename = "authenticate")]
     Authenticate { token: String },
     #[serde(rename = "join_matchmaking")]
-    JoinMatchmaking { game_type: crate::GameType },
+    JoinMatchmaking { game_type: GameType },
     #[serde(rename = "resume_match")]
     ResumeMatch,
     #[serde(rename = "make_move")]

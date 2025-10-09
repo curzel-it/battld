@@ -1,5 +1,5 @@
 use crate::games::{tic_tac_toe::*, rock_paper_scissors::*, GameError};
-use battld_common::{GameType, Match, MatchOutcome};
+use battld_common::{GameType, Match, MatchOutcome, RPSGameState, RPSMove};
 use serde_json::Value as JsonValue;
 use rand::Rng;
 
