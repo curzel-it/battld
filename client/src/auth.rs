@@ -1,6 +1,5 @@
 use std::fs;
 use std::path::Path;
-use battld_common::not_so_secret;
 use rsa::{RsaPrivateKey, RsaPublicKey, pkcs8::{EncodePrivateKey, DecodePrivateKey}, pkcs1::LineEnding};
 use rsa::pkcs1::EncodeRsaPublicKey;
 use rsa::{Pkcs1v15Sign, sha2::Sha256};
@@ -10,27 +9,20 @@ use colored::*;
 use crate::api;
 use crate::state::*;
 
-// Helper function for new 2-step authentication
-async fn perform_new_auth(
+async fn perform_auth(
     server_url: &str,
     player_id: i64,
     private_key_path: &str,
     public_key_path: &str,
 ) -> Result<String, Box<dyn std::error::Error>> {
-    // Get public key hint
     let public_key_hint = Path::new(public_key_path)
         .file_name()
         .and_then(|os_str| os_str.to_str())
         .unwrap_or("unknown")
         .to_string();
 
-    // Step 1: Request challenge
     let challenge_response = api::auth::request_challenge(server_url, player_id, &public_key_hint).await?;
-
-    // Step 2: Sign the nonce
     let signature = sign_data(&challenge_response.nonce, private_key_path)?;
-
-    // Step 3: Verify and get session token
     let auth_response = api::auth::verify_challenge(server_url, player_id, &challenge_response.nonce, &signature).await?;
 
     Ok(auth_response.session_token)
@@ -76,8 +68,7 @@ pub async fn login_interactive(session: &mut SessionState) -> std::result::Resul
 
             println!("{}", format!("Account created successfully! Player ID: {}", player.id).dimmed());
 
-            // Perform authentication after account creation using new 2-step flow
-            match perform_new_auth(
+            match perform_auth(
                 session.config.server_url.as_ref().unwrap(),
                 player.id,
                 private_key_path,
@@ -124,7 +115,7 @@ pub async fn login_interactive(session: &mut SessionState) -> std::result::Resul
             println!("{}", format!("Account created successfully! Player ID: {}", player.id).dimmed());
 
             // Perform authentication after account creation using new 2-step flow
-            match perform_new_auth(
+            match perform_auth(
                 session.config.server_url.as_ref().unwrap(),
                 player.id,
                 session.config.private_key_path.as_ref().unwrap(),
@@ -167,7 +158,7 @@ pub async fn login_interactive(session: &mut SessionState) -> std::result::Resul
             println!("{}", format!("Logging in as player {pid}...").dimmed());
 
             // Perform authentication using new 2-step flow
-            match perform_new_auth(
+            match perform_auth(
                 session.config.server_url.as_ref().unwrap(),
                 pid,
                 session.config.private_key_path.as_ref().unwrap(),
@@ -203,7 +194,7 @@ pub async fn try_auto_login(session: &mut SessionState) -> std::result::Result<b
             println!("{}", "Attempting automatic login...".dimmed());
 
             // Perform authentication using new 2-step flow
-            match perform_new_auth(
+            match perform_auth(
                 session.config.server_url.as_ref().unwrap(),
                 player_id,
                 session.config.private_key_path.as_ref().unwrap(),
@@ -257,28 +248,17 @@ fn generate_key_pair(private_key_path: &str, public_key_path: &str) -> std::resu
     Ok(())
 }
 
-// New function: sign arbitrary data (e.g., nonce)
 pub fn sign_data(data: &str, private_key_path: &str) -> std::result::Result<String, Box<dyn std::error::Error>> {
     let private_key_pem = fs::read_to_string(private_key_path)?;
     let private_key = RsaPrivateKey::from_pkcs8_pem(&private_key_pem)?;
 
-    // Hash the data first, then sign
     use sha2::Digest;
     let mut hasher = Sha256::new();
     hasher.update(data.as_bytes());
     let hashed = hasher.finalize();
 
-    // Sign the hash using PKCS1v15 with SHA256
     let padding = Pkcs1v15Sign::new::<Sha256>();
     let signature = private_key.sign(padding, &hashed)?;
 
-    // Encode signature to base64
     Ok(general_purpose::STANDARD.encode(signature))
-}
-
-// DEPRECATED: Legacy token signing with time-based string
-#[deprecated(note = "Use sign_data for nonce-based auth instead")]
-pub fn signed_token(private_key_path: &str,) -> std::result::Result<String, Box<dyn std::error::Error>> {
-    let (random_string, _) = not_so_secret();
-    sign_data(&random_string, private_key_path)
 }

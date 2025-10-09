@@ -1,7 +1,6 @@
-use battld_common::{HEADER_AUTH, HEADER_PLAYER_ID};
+use battld_common::HEADER_AUTH;
 use colored::*;
 
-use crate::auth::*;
 use crate::state::*;
 use crate::ui::*;
 
@@ -11,19 +10,19 @@ pub async fn show_stats(session: &mut SessionState) -> Result<(), Box<dyn std::e
     clear_screen()?;
     println!("\n{}", "Loading your stats...".cyan());
 
-    let config = &session.config;
-    let player_id = session.player_id.ok_or("Not logged in")?;
-    let server_url = config.server_url.as_ref().ok_or("No server URL configured")?;
-    let private_key_path = config.private_key_path.as_ref().ok_or("No private key path configured")?;
+    if !session.is_authenticated {
+        return Err("Not authenticated".into());
+    }
 
-    let token = signed_token(private_key_path)?;
+    let config = &session.config;
+    let server_url = config.server_url.as_ref().ok_or("No server URL configured")?;
+    let token = session.auth_token.as_ref().ok_or("No auth token")?;
 
     let client = reqwest::Client::new();
     let url = format!("{server_url}/stats");
 
     let response = client
         .get(&url)
-        .header(HEADER_PLAYER_ID, player_id.to_string())
         .header(HEADER_AUTH, format!("Bearer {token}"))
         .send()
         .await?;

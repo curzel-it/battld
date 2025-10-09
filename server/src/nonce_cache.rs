@@ -35,7 +35,6 @@ impl NonceCache {
         nonce
     }
 
-    // IMPORTANT: Use Entry API for atomic check-and-set to prevent race conditions
     pub async fn verify_and_consume(&self, nonce: &str, player_id: i64) -> Result<(), String> {
         let mut nonces = self.nonces.write().await;
 
@@ -55,7 +54,6 @@ impl NonceCache {
                     return Err("Nonce expired".to_string());
                 }
 
-                // Mark as used atomically with the checks above
                 info.used = true;
                 Ok(())
             }
@@ -65,16 +63,13 @@ impl NonceCache {
 
     pub async fn cleanup_expired(&self) {
         let mut nonces = self.nonces.write().await;
-
         nonces.retain(|_, info| {
-            // Keep nonces that are less than 5 minutes old (generous buffer)
             info.created_at.elapsed().unwrap_or(Duration::from_secs(0)) < Duration::from_secs(300)
         });
     }
 }
 
 fn generate_secure_random_string(len: usize) -> String {
-    // Generates 32-char alphanumeric string (~190 bits of entropy)
     thread_rng()
         .sample_iter(&Alphanumeric)
         .take(len)

@@ -182,7 +182,6 @@ async fn handle_socket(
                     println!("[WS RECV] {client_msg:?}");
                     match client_msg {
                         ClientMessage::Authenticate { token } => {
-                            // Authenticate the connection using session token
                             match authenticate_token(&session_cache, &token).await {
                                 Ok(pid) => {
                                     player_id = Some(pid);
@@ -260,42 +259,14 @@ async fn handle_socket(
     send_task.abort();
 }
 
-/// Authenticate a session token and return player_id
 async fn authenticate_token(
     session_cache: &crate::session_cache::SessionCache,
     token: &str,
 ) -> Result<i64, String> {
-    // Token is now a session token (not "player_id:signature")
     session_cache
         .verify_session(token)
         .await
         .map_err(|e| format!("Invalid session: {}", e))
-}
-
-/// DEPRECATED: Legacy authentication for backward compatibility
-#[deprecated(note = "Use session token authentication via authenticate_token instead")]
-#[allow(dead_code)]
-async fn authenticate_token_legacy(db: &Database, token: &str) -> Result<i64, String> {
-    // Token format: "player_id:signature"
-    let parts: Vec<&str> = token.split(':').collect();
-    if parts.len() != 2 {
-        return Err("Invalid token format".to_string());
-    }
-
-    let player_id: i64 = parts[0]
-        .parse()
-        .map_err(|_| "Invalid player ID".to_string())?;
-
-    let player = db
-        .get_player_by_id(player_id)
-        .await
-        .ok_or_else(|| "Player not found".to_string())?;
-
-    // Verify signature (reuse existing auth logic)
-    crate::auth::verify_signature(&player, parts[1])
-        .map_err(|_| "Invalid signature".to_string())?;
-
-    Ok(player_id)
 }
 
 /// Handle resume match request
