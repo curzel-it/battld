@@ -267,8 +267,8 @@ fn extract_previous_rounds(game_state: &RPSGameState) -> Vec<RoundResult> {
     game_state.rounds.iter()
         .filter(|(p1, p2)| p1.is_some() && p2.is_some())
         .map(|(p1, p2)| RoundResult {
-            player1_move: p1.clone(),
-            player2_move: p2.clone(),
+            player1_move: *p1,
+            player2_move: *p2,
         })
         .collect()
 }
@@ -536,7 +536,7 @@ async fn run_game_loop(
 
                 for msg in messages {
                     if let ServerMessage::Error { message } = &msg {
-                        println!("\n{}", format!("Error: {}", message).red());
+                        println!("\n{}", format!("Error: {message}").red());
                         io::stdout().flush()?;
                         continue;
                     }

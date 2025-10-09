@@ -61,7 +61,7 @@ fn parse_server_addrs() -> (String, String) {
             "443"
         };
         let http_port = "80";
-        (format!("0.0.0.0:{}", http_port), format!("0.0.0.0:{}", port))
+        (format!("0.0.0.0:{http_port}"), format!("0.0.0.0:{port}"))
     } else {
         // http:// or no protocol
         let without_protocol = url.trim_start_matches("http://");
@@ -70,7 +70,7 @@ fn parse_server_addrs() -> (String, String) {
         } else {
             "80"
         };
-        (format!("0.0.0.0:{}", port), format!("0.0.0.0:443"))
+        (format!("0.0.0.0:{port}"), "0.0.0.0:443".to_string())
     }
 }
 
@@ -131,7 +131,7 @@ async fn main() {
             let http_addr_clone = http_addr.clone();
             let http_future = async move {
                 let listener = tokio::net::TcpListener::bind(&http_addr_clone).await.unwrap();
-                println!("HTTP redirect server running on {}", http_addr_clone);
+                println!("HTTP redirect server running on {http_addr_clone}");
                 axum::serve(listener, redirect_app).await.unwrap();
             };
 
@@ -145,7 +145,7 @@ async fn main() {
                 .await
                 .expect("Failed to load SSL certificates");
 
-                println!("HTTPS server running on {}", https_addr_clone);
+                println!("HTTPS server running on {https_addr_clone}");
                 axum_server::bind_rustls(https_addr_clone.parse().unwrap(), config)
                     .serve(app.into_make_service_with_connect_info::<SocketAddr>())
                     .await
@@ -158,7 +158,7 @@ async fn main() {
         _ => {
             println!("No SSL certificates found, starting HTTP-only server...");
             let listener = tokio::net::TcpListener::bind(&http_addr).await.unwrap();
-            println!("Server running on {}", http_addr);
+            println!("Server running on {http_addr}");
             axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>()).await.unwrap();
         }
     }

@@ -36,6 +36,12 @@ pub struct RPSGameState {
     pub rounds: Vec<(Option<RPSMove>, Option<RPSMove>)>,
 }
 
+impl Default for RPSGameState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl RPSGameState {
     /// Create a new RPS game with initial round
     pub fn new() -> Self {

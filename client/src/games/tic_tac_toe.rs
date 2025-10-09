@@ -123,7 +123,7 @@ fn render_game_board(match_data: &Match, my_player_number: i32) {
                     2 => "O".bright_magenta().to_string(),
                     _ => " ".to_string(),
                 };
-                print!(" {} ", cell_str);
+                print!(" {cell_str} ");
                 if col < 2 {
                     print!("{}", "|".dimmed());
                 }
@@ -313,7 +313,7 @@ async fn run_game_loop(
 
                 for msg in messages {
                     if let ServerMessage::Error { message } = &msg {
-                        println!("\n{}", format!("Error: {}", message).red());
+                        println!("\n{}", format!("Error: {message}").red());
                         io::stdout().flush()?;
                         continue;
                     }

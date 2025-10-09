@@ -195,7 +195,7 @@ fn handle_rps_move(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use GameType;
+    
 
     #[test]
     fn test_tic_tac_toe_valid_move() {
