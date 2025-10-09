@@ -784,20 +784,26 @@ pub async fn resume_game(session: &mut SessionState, game_match: Match) -> Resul
             result = stdin_reader.read_line(&mut input_line), if waiting_for_input => {
                 match result {
                     Ok(_) => {
-                        let choice = input_line.trim();
+                        let move_str = input_line.trim().to_lowercase();
+                        input_line.clear();
+
+                        // Skip empty input
+                        if move_str.is_empty() {
+                            continue;
+                        }
 
                         // Parse move
-                        let selected_move = match choice {
-                            "1" => Some(RPSMove::Rock),
-                            "2" => Some(RPSMove::Paper),
-                            "3" => Some(RPSMove::Scissors),
+                        let move_choice = match move_str.as_str() {
+                            "rock" => Some("rock"),
+                            "paper" => Some("paper"),
+                            "scissors" => Some("scissors"),
                             _ => None,
                         };
 
-                        if let Some(mov) = selected_move {
+                        if let Some(move_name) = move_choice {
                             // Send move to server
                             let move_data = serde_json::json!({
-                                "move": mov
+                                "choice": move_name
                             });
                             ws_client.send(ClientMessage::MakeMove {
                                 move_data,
@@ -811,20 +817,26 @@ pub async fn resume_game(session: &mut SessionState, game_match: Match) -> Resul
                                 ..
                             } = &ui_state
                             {
-                                ui_state = RockPaperScissorsUiState::SelectMove {
-                                    match_data: match_data.clone(),
-                                    previous_rounds: previous_rounds.clone(),
-                                    opponent_selected: *opponent_selected,
-                                    you_selected: true,
+                                ui_state = if opponent_disconnected {
+                                    RockPaperScissorsUiState::WaitingForOpponentToReconnect {
+                                        match_data: match_data.clone(),
+                                        previous_rounds: previous_rounds.clone(),
+                                    }
+                                } else {
+                                    RockPaperScissorsUiState::SelectMove {
+                                        match_data: match_data.clone(),
+                                        previous_rounds: previous_rounds.clone(),
+                                        opponent_selected: *opponent_selected,
+                                        you_selected: true,
+                                    }
                                 };
                                 ui_state.render(my_number.unwrap_or(1));
                             }
                         } else {
-                            println!("{}", "Invalid choice. Please enter 1, 2, or 3.".red());
+                            println!("{}", "Invalid choice. Please enter rock, paper, or scissors.".red());
+                            print!("  > ");
                             io::stdout().flush()?;
                         }
-
-                        input_line.clear();
                     }
                     Err(e) => {
                         eprintln!("Error reading input: {e}");
