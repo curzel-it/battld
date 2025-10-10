@@ -174,6 +174,7 @@ async fn handle_socket(
 
     // Handle incoming messages
     let mut player_id: Option<i64> = None;
+    let mut session_token: Option<String> = None;
 
     while let Some(msg) = receiver.next().await {
         match msg {
@@ -185,6 +186,7 @@ async fn handle_socket(
                             match authenticate_token(&session_cache, &token).await {
                                 Ok(pid) => {
                                     player_id = Some(pid);
+                                    session_token = Some(token.clone());
                                     registry.register(pid, tx.clone(), send_task.abort_handle()).await;
 
                                     let response = ServerMessage::AuthSuccess { player_id: pid };
@@ -211,6 +213,10 @@ async fn handle_socket(
                             }
                         }
                         ClientMessage::Ping => {
+                            // Auto-refresh session on ping/heartbeat
+                            if let Some(ref token) = session_token {
+                                let _ = session_cache.refresh_session(token).await;
+                            }
                             let _ = tx.send(ServerMessage::Pong);
                         }
                         ClientMessage::JoinMatchmaking { game_type } => {

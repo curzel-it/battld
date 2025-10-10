@@ -33,7 +33,14 @@ impl SessionCache {
     pub async fn create_session(&self, player_id: i64) -> String {
         let token_id = Uuid::new_v4().to_string();
         let now = SystemTime::now();
-        let expires_at = now + Duration::from_secs(86400); // 24 hours
+
+        // Get session duration from env var, default to 24 hours
+        let session_duration_secs = std::env::var("SESSION_DURATION_SECONDS")
+            .ok()
+            .and_then(|v| v.parse::<u64>().ok())
+            .unwrap_or(86400);
+
+        let expires_at = now + Duration::from_secs(session_duration_secs);
 
         let mut sessions = self.sessions.write().await;
         sessions.insert(token_id.clone(), SessionToken {
@@ -55,6 +62,28 @@ impl SessionCache {
         }
 
         Ok(session.player_id)
+    }
+
+    pub async fn refresh_session(&self, token_id: &str) -> Result<(), String> {
+        let mut sessions = self.sessions.write().await;
+        let session = sessions.get_mut(token_id).ok_or("Invalid session".to_string())?;
+
+        // Check if session is still valid before refreshing
+        if SystemTime::now() > session.expires_at {
+            return Err("Session expired".to_string());
+        }
+
+        // Get session duration from env var, default to 24 hours
+        let session_duration_secs = std::env::var("SESSION_DURATION_SECONDS")
+            .ok()
+            .and_then(|v| v.parse::<u64>().ok())
+            .unwrap_or(86400);
+
+        // Extend the session
+        session.expires_at = SystemTime::now() + Duration::from_secs(session_duration_secs);
+        println!("Refreshed session for player {}", session.player_id);
+
+        Ok(())
     }
 
     pub async fn revoke_session(&self, token_id: &str) {
@@ -209,5 +238,53 @@ mod tests {
         assert_eq!(sessions.len(), 2);
         assert!(sessions.iter().any(|s| s.token_id == token1));
         assert!(sessions.iter().any(|s| s.token_id == token2));
+    }
+
+    #[tokio::test]
+    async fn test_refresh_session() {
+        let cache = SessionCache::new();
+        let token = cache.create_session(123).await;
+
+        // Get initial expiry time
+        let initial_expiry = {
+            let sessions = cache.sessions.read().await;
+            sessions.get(&token).unwrap().expires_at
+        };
+
+        // Wait a bit
+        tokio::time::sleep(Duration::from_millis(100)).await;
+
+        // Refresh session
+        cache.refresh_session(&token).await.unwrap();
+
+        // Get new expiry time
+        let new_expiry = {
+            let sessions = cache.sessions.read().await;
+            sessions.get(&token).unwrap().expires_at
+        };
+
+        // New expiry should be later than initial
+        assert!(new_expiry > initial_expiry);
+    }
+
+    #[tokio::test]
+    async fn test_refresh_expired_session_fails() {
+        let cache = SessionCache::new();
+
+        // Manually create an expired session
+        let token_id = Uuid::new_v4().to_string();
+        {
+            let mut sessions = cache.sessions.write().await;
+            sessions.insert(token_id.clone(), SessionToken {
+                token_id: token_id.clone(),
+                player_id: 123,
+                issued_at: SystemTime::now() - Duration::from_secs(86401),
+                expires_at: SystemTime::now() - Duration::from_secs(1),
+            });
+        }
+
+        // Should fail to refresh
+        let result = cache.refresh_session(&token_id).await;
+        assert!(result.is_err());
     }
 }
