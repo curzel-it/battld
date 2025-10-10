@@ -102,7 +102,7 @@ impl ConnectionRegistry {
         let timeout_seconds = std::env::var("DISCONNECT_TIMEOUT_SECONDS")
             .ok()
             .and_then(|s| s.parse::<u64>().ok())
-            .unwrap_or(10);
+            .unwrap_or(30);
 
         let timer_task = tokio::spawn(async move {
             sleep(Duration::from_secs(timeout_seconds)).await;
