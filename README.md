@@ -5,7 +5,7 @@
 ░▀▀░░▀░▀░░▀░░░▀░░▀▀▀░▀▀░
 ```
 
-Battld is a hub of for turn-based multiplayer games you can play in the terminal.
+Battld is a hub for turn-based multiplayer games you can play in the terminal.
 
 Join the Beta!
 

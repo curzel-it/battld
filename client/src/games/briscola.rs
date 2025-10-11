@@ -638,3 +638,103 @@ pub async fn resume_game(
 
     run_game_loop(ws_client, my_player_id, initial_state, my_number).await
 }
+
+pub fn card_view(suit: Suit, rank: Rank) -> Vec<Vec<char>> {
+    return vec![
+        // Ace of Coppe
+        "╭───────╮".chars().collect(),
+        "│     A │".chars().collect(),
+        "│       │".chars().collect(),
+        "│   C   │".chars().collect(),
+        "│       │".chars().collect(),
+        "╰───────╯".chars().collect(),    
+
+        // 2 of Coppe
+        "╭───────╮".chars().collect(),
+        "│     2 │".chars().collect(),
+        "│       │".chars().collect(),
+        "│  C C  │".chars().collect(),
+        "│       │".chars().collect(),
+        "╰───────╯".chars().collect(),    
+
+        // 3 of Coppe
+        "╭───────╮".chars().collect(),
+        "│     3 │".chars().collect(),
+        "│   C   │".chars().collect(),
+        "│  C C  │".chars().collect(),
+        "│       │".chars().collect(),
+        "╰───────╯".chars().collect(),    
+
+        // 4 of Coppe
+        "╭───────╮".chars().collect(),
+        "│     4 │".chars().collect(),
+        "│  C C  │".chars().collect(),
+        "│       │".chars().collect(),
+        "│  C C  │".chars().collect(),
+        "╰───────╯".chars().collect(),  
+
+        // 5 of Coppe
+        "╭───────╮".chars().collect(),
+        "│     5 │".chars().collect(),
+        "│  C C  │".chars().collect(),
+        "│   C   │".chars().collect(),
+        "│  C C  │".chars().collect(),
+        "╰───────╯".chars().collect(),   
+
+        // 6 of Coppe
+        "╭───────╮".chars().collect(),
+        "│     6 │".chars().collect(),
+        "│  C C  │".chars().collect(),
+        "│  C C  │".chars().collect(),
+        "│  C C  │".chars().collect(),
+        "╰───────╯".chars().collect(), 
+
+        // 7 of Coppe
+        "╭───────╮".chars().collect(),
+        "│     7 │".chars().collect(),
+        "│  C C  │".chars().collect(),
+        "│ C C C │".chars().collect(),
+        "│  C C  │".chars().collect(),
+        "╰───────╯".chars().collect(),    
+
+        // Jack of Coppe
+        "╭───────╮".chars().collect(),
+        "│     J │".chars().collect(),
+        "│     C │".chars().collect(),
+        "│ ╭┼╮╱  │".chars().collect(),
+        "│ ╭┴╮   │".chars().collect(),
+        "╰───────╯".chars().collect(),  
+
+        // Knight of Coppe
+        "╭───────╮".chars().collect(),
+        "│╲ ╷  K │".chars().collect(),
+        "│ ╰┼╯╭C │".chars().collect(),
+        "│╭─┼─┴╮ │".chars().collect(),
+        "││ ╵  │ │".chars().collect(),
+        "╰───────╯".chars().collect(),    
+
+        // King of Coppe
+        "╭───────╮".chars().collect(),
+        "│  w  K │".chars().collect(),
+        "│╰─┼─╮C │".chars().collect(),
+        "│ ╭┴╮   │".chars().collect(),
+        "│ │ │   │".chars().collect(),
+        "╰───────╯".chars().collect(),    
+
+        // Ace of Bastoni  
+        "╭───────╮".chars().collect(),
+        "│     A │".chars().collect(),
+        "│       │".chars().collect(),
+        "│   B   │".chars().collect(),
+        "│       │".chars().collect(),
+        "╰───────╯".chars().collect(),    
+
+        // Jack of Bastioni
+        "╭───────╮".chars().collect(),
+        "│     J │".chars().collect(),
+        "│     B │".chars().collect(),
+        "│ ╭┼╮╱  │".chars().collect(),
+        "│ ╭┴╮   │".chars().collect(),
+        "╰───────╯".chars().collect(),       
+    ];
+}
