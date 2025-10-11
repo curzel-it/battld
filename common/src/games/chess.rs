@@ -176,6 +176,187 @@ impl ChessGameState {
             None => None,
         }
     }
+
+    pub fn is_valid_move(&self, chess_move: &ChessMove, player: Player) -> Result<bool, String> {
+        let piece = self.get_piece(chess_move.from)
+            .ok_or_else(|| "No piece at source position".to_string())?;
+
+        if piece.player != player {
+            return Err("Cannot move opponent's piece".to_string());
+        }
+
+        if let Some(target_piece) = self.get_piece(chess_move.to) {
+            if target_piece.player == player {
+                return Err("Cannot capture own piece".to_string());
+            }
+        }
+
+        if !self.is_valid_piece_move(chess_move, piece)? {
+            return Ok(false);
+        }
+
+        if self.would_move_cause_check(chess_move, player) {
+            return Ok(false);
+        }
+
+        Ok(true)
+    }
+
+    fn is_valid_piece_move(&self, chess_move: &ChessMove, piece: &ChessPieceState) -> Result<bool, String> {
+        let from = chess_move.from;
+        let to = chess_move.to;
+
+        if from == to {
+            return Ok(false);
+        }
+
+        let row_diff = (to.row as i8 - from.row as i8).abs();
+        let col_diff = (to.col as i8 - from.col as i8).abs();
+
+        match piece.piece {
+            ChessPiece::Pawn => self.is_valid_pawn_move(chess_move, piece.player),
+            ChessPiece::Rook => {
+                if row_diff == 0 || col_diff == 0 {
+                    self.is_path_clear(from, to)
+                } else {
+                    Ok(false)
+                }
+            }
+            ChessPiece::Knight => {
+                Ok((row_diff == 2 && col_diff == 1) || (row_diff == 1 && col_diff == 2))
+            }
+            ChessPiece::Bishop => {
+                if row_diff == col_diff && row_diff > 0 {
+                    self.is_path_clear(from, to)
+                } else {
+                    Ok(false)
+                }
+            }
+            ChessPiece::Queen => {
+                if row_diff == col_diff || row_diff == 0 || col_diff == 0 {
+                    self.is_path_clear(from, to)
+                } else {
+                    Ok(false)
+                }
+            }
+            ChessPiece::King => {
+                Ok(row_diff <= 1 && col_diff <= 1)
+            }
+        }
+    }
+
+    fn is_valid_pawn_move(&self, chess_move: &ChessMove, player: Player) -> Result<bool, String> {
+        let from = chess_move.from;
+        let to = chess_move.to;
+
+        let direction: i8 = match player {
+            Player::White => 1,
+            Player::Black => -1,
+        };
+
+        let row_diff = to.row as i8 - from.row as i8;
+        let col_diff = (to.col as i8 - from.col as i8).abs();
+
+        if row_diff == direction && col_diff == 0 {
+            return Ok(self.get_piece(to).is_none());
+        }
+
+        if row_diff == direction * 2 && col_diff == 0 {
+            let start_row = match player {
+                Player::White => 1,
+                Player::Black => 6,
+            };
+            if from.row == start_row {
+                let middle_pos = ChessPosition::new(
+                    (from.row as i8 + direction) as u8,
+                    from.col,
+                ).unwrap();
+                return Ok(self.get_piece(middle_pos).is_none() && self.get_piece(to).is_none());
+            }
+        }
+
+        if row_diff == direction && col_diff == 1 {
+            return Ok(self.get_piece(to).is_some());
+        }
+
+        Ok(false)
+    }
+
+    fn is_path_clear(&self, from: ChessPosition, to: ChessPosition) -> Result<bool, String> {
+        let row_dir = (to.row as i8 - from.row as i8).signum();
+        let col_dir = (to.col as i8 - from.col as i8).signum();
+
+        let mut current_row = from.row as i8 + row_dir;
+        let mut current_col = from.col as i8 + col_dir;
+
+        while current_row != to.row as i8 || current_col != to.col as i8 {
+            let pos = ChessPosition::new(current_row as u8, current_col as u8)
+                .ok_or_else(|| "Invalid position in path".to_string())?;
+
+            if self.get_piece(pos).is_some() {
+                return Ok(false);
+            }
+
+            current_row += row_dir;
+            current_col += col_dir;
+        }
+
+        Ok(true)
+    }
+
+    fn would_move_cause_check(&self, chess_move: &ChessMove, player: Player) -> bool {
+        let mut test_state = self.clone();
+        let piece = test_state.get_piece(chess_move.from).cloned();
+        if piece.is_none() {
+            return true;
+        }
+
+        *test_state.get_piece_mut(chess_move.from) = None;
+        *test_state.get_piece_mut(chess_move.to) = piece;
+
+        test_state.is_in_check(player)
+    }
+
+    pub fn is_in_check(&self, player: Player) -> bool {
+        let king_pos = self.find_king(player);
+        if king_pos.is_none() {
+            return false;
+        }
+        let king_pos = king_pos.unwrap();
+
+        self.is_square_attacked(king_pos, player.opponent())
+    }
+
+    fn is_square_attacked(&self, pos: ChessPosition, by_player: Player) -> bool {
+        for row in 0..8 {
+            for col in 0..8 {
+                let from = ChessPosition::new(row, col).unwrap();
+                if let Some(piece) = self.get_piece(from) {
+                    if piece.player == by_player {
+                        let test_move = ChessMove { from, to: pos };
+                        if let Ok(true) = self.is_valid_piece_move(&test_move, piece) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        false
+    }
+
+    fn find_king(&self, player: Player) -> Option<ChessPosition> {
+        for row in 0..8 {
+            for col in 0..8 {
+                let pos = ChessPosition::new(row, col).unwrap();
+                if let Some(piece) = self.get_piece(pos) {
+                    if piece.player == player && piece.piece == ChessPiece::King {
+                        return Some(pos);
+                    }
+                }
+            }
+        }
+        None
+    }
 }
 
 impl Default for ChessGameState {

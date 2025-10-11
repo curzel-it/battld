@@ -286,6 +286,7 @@ fn handle_user_input(
     ui_state: &ChessUiState,
     opponent_disconnected: bool,
     ws_client: &crate::websocket::WebSocketClient,
+    my_player: Player,
 ) -> Result<Option<ChessUiState>, Box<dyn std::error::Error>> {
     let parts: Vec<&str> = input.split_whitespace().collect();
 
@@ -306,14 +307,36 @@ fn handle_user_input(
         return Ok(None);
     }
 
-    let move_data = serde_json::json!({
-        "from": from.unwrap(),
-        "to": to.unwrap()
-    });
-
-    ws_client.send(ClientMessage::MakeMove { move_data })?;
+    let from = from.unwrap();
+    let to = to.unwrap();
+    let chess_move = battld_common::games::chess::ChessMove { from, to };
 
     if let ChessUiState::MyTurn(match_data) = ui_state {
+        if let Ok(game_state) = serde_json::from_value::<ChessGameState>(match_data.game_state.clone()) {
+            match game_state.is_valid_move(&chess_move, my_player) {
+                Ok(true) => {},
+                Ok(false) => {
+                    println!("{}", "Invalid move for that piece.".red());
+                    print!("  > ");
+                    io::stdout().flush()?;
+                    return Ok(None);
+                }
+                Err(msg) => {
+                    println!("{}", format!("Invalid move: {msg}").red());
+                    print!("  > ");
+                    io::stdout().flush()?;
+                    return Ok(None);
+                }
+            }
+        }
+
+        let move_data = serde_json::json!({
+            "from": from,
+            "to": to
+        });
+
+        ws_client.send(ClientMessage::MakeMove { move_data })?;
+
         let new_state = if opponent_disconnected {
             ChessUiState::WaitingForOpponentToReconnect(match_data.clone())
         } else {
@@ -426,6 +449,7 @@ async fn run_game_loop(
                         &ui_state,
                         opponent_disconnected,
                         ws_client,
+                        my_player.unwrap(),
                     ) {
                         ui_state = new_state;
                         ui_state.render(my_player.unwrap());

@@ -57,3 +57,8 @@ Depending on the kind of game you are implementing, read one of the following fo
 - client/src/games/briscola.rs uses ascii-art to draw cards on the screen
 
 In general, if the game needs a board and has a lot of units (or cards) it's better to do at least some ascii art.
+
+Sometimes it can happen that a player inputs some characters (maybe followed by enter) while waiting for the opponent to move.
+When this happens that player turn might start and end immediately, give the input buffer already contains something. 
+This can cause invalid moves, unintended input and other edge cases.
+To prevent this, we to make sure input buffer is properly cleared.
