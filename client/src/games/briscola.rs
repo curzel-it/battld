@@ -121,10 +121,7 @@ impl BriscolaUiState {
                     &game_state.player2_hand
                 };
                 println!("{}", "  Your hand:".bold());
-                for (i, card) in my_hand.iter().enumerate() {
-                    println!("    [{}] {}", i, format_card(card));
-                }
-                println!();
+                print!("{}", display_hand_ascii(my_hand));
 
                 // Input prompt or waiting message
                 if *opponent_disconnected {
@@ -639,102 +636,125 @@ pub async fn resume_game(
     run_game_loop(ws_client, my_player_id, initial_state, my_number).await
 }
 
-pub fn card_view(suit: Suit, rank: Rank) -> Vec<Vec<char>> {
-    return vec![
-        // Ace of Coppe
-        "╭───────╮".chars().collect(),
-        "│     A │".chars().collect(),
-        "│       │".chars().collect(),
-        "│   C   │".chars().collect(),
-        "│       │".chars().collect(),
-        "╰───────╯".chars().collect(),    
+/// Returns ASCII art representation of a card as a vector of lines
+pub fn card_view(suit: Suit, rank: Rank) -> Vec<String> {
+    let rank_str = match rank {
+        Rank::Ace => "A",
+        Rank::Two => "2",
+        Rank::Three => "3",
+        Rank::Four => "4",
+        Rank::Five => "5",
+        Rank::Six => "6",
+        Rank::Seven => "7",
+        Rank::Jack => "J",
+        Rank::Knight => "C",
+        Rank::King => "K",
+    };
 
-        // 2 of Coppe
-        "╭───────╮".chars().collect(),
-        "│     2 │".chars().collect(),
-        "│       │".chars().collect(),
-        "│  C C  │".chars().collect(),
-        "│       │".chars().collect(),
-        "╰───────╯".chars().collect(),    
+    let suit_char = match suit {
+        Suit::Bastoni => "B",
+        Suit::Coppe => "C",
+        Suit::Denari => "D",
+        Suit::Spade => "S",
+    };
 
-        // 3 of Coppe
-        "╭───────╮".chars().collect(),
-        "│     3 │".chars().collect(),
-        "│   C   │".chars().collect(),
-        "│  C C  │".chars().collect(),
-        "│       │".chars().collect(),
-        "╰───────╯".chars().collect(),    
+    // Generate middle rows based on rank
+    let middle_rows = match rank {
+        Rank::Ace => vec![
+            format!("│       │"),
+            format!("│   {}   │", suit_char),
+            format!("│       │"),
+        ],
+        Rank::Two => vec![
+            format!("│       │"),
+            format!("│  {} {}  │", suit_char, suit_char),
+            format!("│       │"),
+        ],
+        Rank::Three => vec![
+            format!("│   {}   │", suit_char),
+            format!("│  {} {}  │", suit_char, suit_char),
+            format!("│       │"),
+        ],
+        Rank::Four => vec![
+            format!("│  {} {}  │", suit_char, suit_char),
+            format!("│       │"),
+            format!("│  {} {}  │", suit_char, suit_char),
+        ],
+        Rank::Five => vec![
+            format!("│  {} {}  │", suit_char, suit_char),
+            format!("│   {}   │", suit_char),
+            format!("│  {} {}  │", suit_char, suit_char),
+        ],
+        Rank::Six => vec![
+            format!("│  {} {}  │", suit_char, suit_char),
+            format!("│  {} {}  │", suit_char, suit_char),
+            format!("│  {} {}  │", suit_char, suit_char),
+        ],
+        Rank::Seven => vec![
+            format!("│  {} {}  │", suit_char, suit_char),
+            format!("│ {} {} {} │", suit_char, suit_char, suit_char),
+            format!("│  {} {}  │", suit_char, suit_char),
+        ],
+        Rank::Jack => vec![
+            format!("│     {} │", suit_char),
+            format!("│ ╭┼╮╱  │"),
+            format!("│ ╭┴╮   │"),
+        ],
+        Rank::Knight => vec![
+            format!("│ ╰┼╯╭{} │", suit_char),
+            format!("│╭─┼─┴╮ │"),
+            format!("││ ╵  │ │"),
+        ],
+        Rank::King => vec![
+            format!("│╰─┼─╮{} │", suit_char),
+            format!("│ ╭┴╮   │"),
+            format!("│ │ │   │"),
+        ],
+    };
 
-        // 4 of Coppe
-        "╭───────╮".chars().collect(),
-        "│     4 │".chars().collect(),
-        "│  C C  │".chars().collect(),
-        "│       │".chars().collect(),
-        "│  C C  │".chars().collect(),
-        "╰───────╯".chars().collect(),  
-
-        // 5 of Coppe
-        "╭───────╮".chars().collect(),
-        "│     5 │".chars().collect(),
-        "│  C C  │".chars().collect(),
-        "│   C   │".chars().collect(),
-        "│  C C  │".chars().collect(),
-        "╰───────╯".chars().collect(),   
-
-        // 6 of Coppe
-        "╭───────╮".chars().collect(),
-        "│     6 │".chars().collect(),
-        "│  C C  │".chars().collect(),
-        "│  C C  │".chars().collect(),
-        "│  C C  │".chars().collect(),
-        "╰───────╯".chars().collect(), 
-
-        // 7 of Coppe
-        "╭───────╮".chars().collect(),
-        "│     7 │".chars().collect(),
-        "│  C C  │".chars().collect(),
-        "│ C C C │".chars().collect(),
-        "│  C C  │".chars().collect(),
-        "╰───────╯".chars().collect(),    
-
-        // Jack of Coppe
-        "╭───────╮".chars().collect(),
-        "│     J │".chars().collect(),
-        "│     C │".chars().collect(),
-        "│ ╭┼╮╱  │".chars().collect(),
-        "│ ╭┴╮   │".chars().collect(),
-        "╰───────╯".chars().collect(),  
-
-        // Knight of Coppe
-        "╭───────╮".chars().collect(),
-        "│╲ ╷  K │".chars().collect(),
-        "│ ╰┼╯╭C │".chars().collect(),
-        "│╭─┼─┴╮ │".chars().collect(),
-        "││ ╵  │ │".chars().collect(),
-        "╰───────╯".chars().collect(),    
-
-        // King of Coppe
-        "╭───────╮".chars().collect(),
-        "│  w  K │".chars().collect(),
-        "│╰─┼─╮C │".chars().collect(),
-        "│ ╭┴╮   │".chars().collect(),
-        "│ │ │   │".chars().collect(),
-        "╰───────╯".chars().collect(),    
-
-        // Ace of Bastoni  
-        "╭───────╮".chars().collect(),
-        "│     A │".chars().collect(),
-        "│       │".chars().collect(),
-        "│   B   │".chars().collect(),
-        "│       │".chars().collect(),
-        "╰───────╯".chars().collect(),    
-
-        // Jack of Bastioni
-        "╭───────╮".chars().collect(),
-        "│     J │".chars().collect(),
-        "│     B │".chars().collect(),
-        "│ ╭┼╮╱  │".chars().collect(),
-        "│ ╭┴╮   │".chars().collect(),
-        "╰───────╯".chars().collect(),       
+    // Build the complete card
+    let mut lines = vec![
+        String::from("╭───────╮"),
+        format!("│     {} │", rank_str),
     ];
+    lines.extend(middle_rows);
+    lines.push(String::from("╰───────╯"));
+
+    lines
+}
+
+/// Display multiple cards side-by-side with indices
+fn display_hand_ascii(hand: &[Card]) -> String {
+    if hand.is_empty() {
+        return String::new();
+    }
+
+    // Get ASCII art for each card
+    let card_arts: Vec<Vec<String>> = hand
+        .iter()
+        .map(|card| card_view(card.suit, card.rank))
+        .collect();
+
+    let mut output = String::new();
+
+    // Display cards side by side
+    for line_idx in 0..6 {
+        // 6 lines per card
+        output.push_str("  ");
+        for card_art in &card_arts {
+            output.push_str(&card_art[line_idx]);
+            output.push_str("  ");
+        }
+        output.push('\n');
+    }
+
+    // Display indices below cards
+    output.push_str("  ");
+    for i in 0..hand.len() {
+        output.push_str(&format!("   [{}]    ", i));
+        output.push_str(" ");
+    }
+    output.push('\n');
+
+    output
 }
