@@ -58,7 +58,7 @@ impl BriscolaUiState {
                     let first_str = format_card(&first_card);
                     let second_str = format_card(&second_card);
                     let winner_str = if winner == my_player_number { "You" } else { "Opponent" };
-                    println!("  Previous round: {} vs {} - {} won", first_str, second_str, winner_str);
+                    println!("  Previous round: {first_str} vs {second_str} - {winner_str} won");
                     println!();
                 }
 
@@ -93,7 +93,7 @@ impl BriscolaUiState {
                 } else {
                     ""
                 };
-                println!("  Briscola:   {}          {}   ", deck_header, table_header);
+                println!("  Briscola:   {deck_header}          {table_header}   ");
 
                 // Lines 2-7: Cards side by side
                 // Prepare briscola text (suit name or empty if card shown)
@@ -185,7 +185,7 @@ impl BriscolaUiState {
                     // Card indices
                     print!("     ");
                     for i in 0..my_hand.len() {
-                        print!("[{}]        ", i);
+                        print!("[{i}]        ");
                     }
                     println!();
                 }
@@ -218,7 +218,7 @@ impl BriscolaUiState {
                 } else {
                     (p2_score, p1_score)
                 };
-                println!("  Score: You {} - {} Opponent", my_score, opp_score);
+                println!("  Score: You {my_score} - {opp_score} Opponent");
                 println!();
 
                 println!("{}", "  Opponent disconnected. Waiting for reconnection...".yellow());
@@ -288,7 +288,7 @@ fn format_card(card: &Card) -> String {
         Rank::Knight => "C", // Cavallo
         Rank::King => "K",
     };
-    format!("{} {}", rank_str, suit_str)
+    format!("{rank_str} {suit_str}")
 }
 
 fn render_final_results(match_data: &Match, my_player_number: i32) {
@@ -702,7 +702,7 @@ pub async fn resume_game(
 }
 
 pub fn covered_card() -> Vec<String> {
-    return vec![
+    vec![
         "                   ".to_string(),
         "╭┬┬┬┬┬┬┬╮          ".to_string(),
         "├┼┼┼┼┼┼┼┤          ".to_string(),
@@ -710,7 +710,7 @@ pub fn covered_card() -> Vec<String> {
         "├┼┼┼┼┼┼┼┤          ".to_string(),
         "├┼┼┼┼┼┼┼┤          ".to_string(),
         "╰┴┴┴┴┴┴┴╯          ".to_string(),
-    ];
+    ]
 
     /* Two covered cards
     return vec![
@@ -831,117 +831,4 @@ pub fn card_view(suit: Suit, rank: Rank) -> Vec<String> {
     lines.push(String::from("╰───────╯"));
 
     lines
-}
-
-/// Display multiple cards side-by-side with indices
-fn display_hand_ascii(hand: &[Card]) -> String {
-    if hand.is_empty() {
-        return String::new();
-    }
-
-    // Get ASCII art for each card
-    let card_arts: Vec<Vec<String>> = hand
-        .iter()
-        .map(|card| card_view(card.suit, card.rank))
-        .collect();
-
-    let mut output = String::new();
-
-    // Display cards side by side
-    for line_idx in 0..6 {
-        // 6 lines per card
-        output.push_str("  ");
-        for card_art in &card_arts {
-            output.push_str(&card_art[line_idx]);
-            output.push_str("  ");
-        }
-        output.push('\n');
-    }
-
-    // Display indices below cards
-    output.push_str("  ");
-    for i in 0..hand.len() {
-        output.push_str(&format!("   [{}]    ", i));
-        output.push_str(" ");
-    }
-    output.push('\n');
-
-    output
-}
-
-/// Display opponent's hand as covered cards
-fn display_opponent_hand_ascii(num_cards: usize) -> String {
-    if num_cards == 0 {
-        return String::new();
-    }
-
-    let mut output = String::new();
-
-    match num_cards {
-        1 => {
-            // Single covered card
-            let lines = vec![
-                "                   ",
-                "╭┬┬┬┬┬┬┬╮          ",
-                "├┼┼┼┼┼┼┼┤          ",
-                "├┼┼┼┼┼┼┼┤          ",
-                "├┼┼┼┼┼┼┼┤          ",
-                "├┼┼┼┼┼┼┼┤          ",
-                "╰┴┴┴┴┴┴┴╯          ",
-            ];
-            for line in lines {
-                output.push_str("  ");
-                output.push_str(line);
-                output.push('\n');
-            }
-        }
-        2 => {
-            // Two covered cards
-            let lines = vec![
-                "     ╭┬┬┬┬┬┬┬╮     ",
-                "╭┬┬┬┬├┼┼┼┼┼┼┼┤     ",
-                "├┼┼┼┼├┼┼┼┼┼┼┼┤     ",
-                "├┼┼┼┼├┼┼┼┼┼┼┼┤     ",
-                "├┼┼┼┼├┼┼┼┼┼┼┼┤     ",
-                "├┼┼┼┼╰┴┴┴┴┴┴┴╯     ",
-                "╰┴┴┴┴┴┴┴╯          ",
-            ];
-            for line in lines {
-                output.push_str("  ");
-                output.push_str(line);
-                output.push('\n');
-            }
-        }
-        _ => {
-            // Three or more covered cards
-            let lines = vec![
-                "╭┬┬┬┬┬┬┬╮ ╭┬┬┬┬┬┬┬╮",
-                "├┼┼┼┼╭┬┬┬┬├┼┼┼┼┼┼┼┤",
-                "├┼┼┼┼├┼┼┼┼├┼┼┼┼┼┼┼┤",
-                "├┼┼┼┼├┼┼┼┼├┼┼┼┼┼┼┼┤",
-                "├┼┼┼┼├┼┼┼┼├┼┼┼┼┼┼┤",
-                "╰┴┴┴┴├┼┼┼┼╰┴┴┴┴┴┴┴╯",
-                "     ╰┴┴┴┴┴┴┴╯     ",
-            ];
-            for line in lines {
-                output.push_str("  ");
-                output.push_str(line);
-                output.push('\n');
-            }
-        }
-    }
-
-    output
-}
-
-/// Display deck as covered card with count
-fn display_deck_ascii(count: usize) -> Vec<String> {
-    vec![
-        format!("╭┬┬┬┬┬┬┬╮"),
-        format!("├┼┼┼┼┼┼┼┤"),
-        format!("├┼┼┼┼┼┼┼┤ x {}", count),
-        format!("├┼┼┼┼┼┼┼┤"),
-        format!("├┼┼┼┼┼┼┼┤"),
-        format!("╰┴┴┴┴┴┴┴╯"),
-    ]
 }

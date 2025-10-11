@@ -105,7 +105,7 @@ pub fn initialize_game_state(game_type: &GameType) -> String {
             serde_json::to_string(&state).unwrap()
         }
         GameType::Briscola => {
-            let mut state = BriscolaGameEngine::new();
+            let mut state = BriscolaGameEngine::new_game();
             state.current_player = first_player;
             serde_json::to_string(&state).unwrap()
         }

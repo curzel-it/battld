@@ -12,7 +12,7 @@ pub struct BriscolaGameEngine;
 
 impl BriscolaGameEngine {
     /// Create a new game with shuffled deck
-    pub fn new() -> BriscolaGameState {
+    pub fn new_game() -> BriscolaGameState {
         let mut deck = Self::create_and_shuffle_deck();
 
         // Deal 3 cards to each player
@@ -207,12 +207,10 @@ impl BriscolaGameEngine {
         if first_is_trump && second_is_trump {
             if Self::rank_value(first_card.rank) > Self::rank_value(second_card.rank) {
                 first_player
+            } else if first_player == 1 {
+                2
             } else {
-                if first_player == 1 {
-                    2
-                } else {
-                    1
-                }
+                1
             }
         }
         // Case 2: Only first is trump - first wins
@@ -233,12 +231,10 @@ impl BriscolaGameEngine {
             if first_card.suit == second_card.suit {
                 if Self::rank_value(first_card.rank) > Self::rank_value(second_card.rank) {
                     first_player
+                } else if first_player == 1 {
+                    2
                 } else {
-                    if first_player == 1 {
-                        2
-                    } else {
-                        1
-                    }
+                    1
                 }
             } else {
                 // Different suits, neither trump - first card wins
@@ -268,12 +264,7 @@ impl BriscolaGameEngine {
         let card_to_draw = if !state.deck.is_empty() {
             // Draw from deck
             Some(state.deck.pop().unwrap())
-        } else if let Some(trump) = state.trump_card.take() {
-            // Deck is empty, draw the trump card
-            Some(trump)
-        } else {
-            None
-        };
+        } else { state.trump_card.take() };
 
         if let Some(card) = card_to_draw {
             // Add to appropriate player's hand
@@ -305,7 +296,7 @@ mod tests {
 
     #[test]
     fn test_new_game_initialization() {
-        let state = BriscolaGameEngine::new();
+        let state = BriscolaGameEngine::new_game();
 
         // Each player should have 3 cards
         assert_eq!(state.player1_hand.len(), 3);
