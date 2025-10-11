@@ -84,6 +84,10 @@ pub struct BriscolaGameState {
 
     // Current round state
     pub round_state: RoundState,
+
+    // Previous round result: (first_card, second_card, winner)
+    // None if no rounds have been completed yet
+    pub previous_round: Option<(Card, Card, PlayerSymbol)>,
 }
 
 impl BriscolaGameState {
@@ -101,6 +105,7 @@ impl BriscolaGameState {
             player2_pile: Vec::new(),
             current_player: 1,
             round_state: RoundState::AwaitingFirstCard,
+            previous_round: None,
         }
     }
 

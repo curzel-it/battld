@@ -55,8 +55,16 @@ impl BriscolaUiState {
                 println!("{}", "|============================================================|".bright_cyan());
                 println!("{}", "|                                                            |");
 
-                // Previous round information (only if table is empty and rounds have been played)
-                // We can't track previous rounds perfectly without state, so we'll skip for now
+                // Previous round information
+                if let Some((first_card, second_card, winner)) = game_state.previous_round {
+                    let first_str = format_card(&first_card);
+                    let second_str = format_card(&second_card);
+                    let winner_str = if winner == my_player_number { "You" } else { "Opponent" };
+                    println!("|  Previous round: {} vs {} - {} won            |", first_str, second_str, winner_str);
+                } else {
+                    println!("{}", "|                                                            |");
+                }
+
                 println!("{}", "|                                                            |");
 
                 // Get card arts for the layout

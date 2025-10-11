@@ -44,6 +44,7 @@ impl BriscolaGameEngine {
             player2_pile: Vec::new(),
             current_player: 1, // Will be randomized in initialize_game_state
             round_state: RoundState::AwaitingFirstCard,
+            previous_round: None,
         }
     }
 
@@ -151,7 +152,10 @@ impl BriscolaGameEngine {
 
         let round_winner = Self::determine_round_winner(first_card, second_card, trump_suit, first_player);
 
-        // 2. Award both cards to winner's pile
+        // 2. Store previous round result before clearing table
+        state.previous_round = Some((first_card, second_card, round_winner));
+
+        // 3. Award both cards to winner's pile
         if round_winner == 1 {
             state.player1_pile.push(first_card);
             state.player1_pile.push(second_card);
@@ -160,10 +164,10 @@ impl BriscolaGameEngine {
             state.player2_pile.push(second_card);
         }
 
-        // 3. Clear table
+        // 4. Clear table
         state.table.clear();
 
-        // 4. Draw new cards (if deck not empty or trump available)
+        // 5. Draw new cards (if deck not empty or trump available)
         if !state.deck.is_empty() || state.trump_card.is_some() {
             // Winner draws first
             Self::draw_card_to_player(&mut state, round_winner);
@@ -175,7 +179,7 @@ impl BriscolaGameEngine {
             }
         }
 
-        // 5. Winner of round starts next round
+        // 6. Winner of round starts next round
         state.current_player = round_winner;
         state.round_state = RoundState::AwaitingFirstCard;
 
