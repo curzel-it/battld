@@ -10,7 +10,7 @@ pub async fn get_player(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> Result<Json<Player>, StatusCode> {
-    let player_id = auth::authenticate_request(&state.db, &headers).await?;
+    let player_id = auth::authenticate_request(&state.session_cache, &headers).await?;
     let db = &state.db;
     println!("API: Getting player {player_id}");
 
@@ -38,7 +38,7 @@ pub async fn get_player_by_id(
     headers: HeaderMap,
     axum::extract::Path(id): axum::extract::Path<i64>
 ) -> Result<Json<Player>, StatusCode> {
-    let _authenticated_player_id = auth::authenticate_request(&state.db, &headers).await?;
+    let _authenticated_player_id = auth::authenticate_request(&state.session_cache, &headers).await?;
     let db = &state.db;
 
     match repository::fetch_player(db, id).await {
@@ -58,7 +58,7 @@ pub async fn get_active_matches(
     headers: HeaderMap,
 ) -> Result<Json<Vec<Match>>, StatusCode> {
     println!("API: GET /matches/active request received");
-    let player_id = match auth::authenticate_request(&state.db, &headers).await {
+    let player_id = match auth::authenticate_request(&state.session_cache, &headers).await {
         Ok(id) => {
             println!("API: Authentication successful for player {id}");
             id

@@ -1,24 +1,24 @@
-use battld_common::{HEADER_AUTH, HEADER_PLAYER_ID, LeaderboardResponse};
+use battld_common::{HEADER_AUTH, LeaderboardResponse};
 use colored::*;
 use std::io::{self, Write};
 
-use crate::auth::*;
 use crate::state::*;
 use crate::ui::*;
 
-pub async fn show_leaderboard(session: &mut SessionState) -> Result<(), Box<dyn std::error::Error>> { 
-    let config = &session.config;
-    let player_id = session.player_id.ok_or("Not logged in")?;
-    let server_url = config.server_url.as_ref().ok_or("No server URL configured")?;
-    let private_key_path = config.private_key_path.as_ref().ok_or("No private key path configured")?;
+pub async fn show_leaderboard(session: &mut SessionState) -> Result<(), Box<dyn std::error::Error>> {
+    if !session.is_authenticated {
+        return Err("Not authenticated".into());
+    }
 
-    // Determine terminal size for pagination
+    let config = &session.config;
+    let server_url = config.server_url.as_ref().ok_or("No server URL configured")?;
+    let token = session.auth_token.as_ref().ok_or("No auth token")?;
+
     let page_size = match crossterm::terminal::size() {
         Ok((_, h)) => {
-            // Reserve space for header, footer, and instructions (approximately 10 lines)
             ((h as i64).saturating_sub(10)).max(5)
         }
-        Err(_) => 10, // Default fallback
+        Err(_) => 10,
     };
 
     let mut offset = 0i64;
@@ -27,13 +27,11 @@ pub async fn show_leaderboard(session: &mut SessionState) -> Result<(), Box<dyn 
         clear_screen()?;
         println!("\n{}", "Loading leaderboard...".cyan());
 
-        let token = signed_token(private_key_path)?;
         let client = reqwest::Client::new();
         let url = format!("{server_url}/leaderboard?limit={page_size}&offset={offset}");
 
         let response = client
             .get(&url)
-            .header(HEADER_PLAYER_ID, player_id.to_string())
             .header(HEADER_AUTH, format!("Bearer {token}"))
             .send()
             .await?;

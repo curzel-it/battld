@@ -102,7 +102,7 @@ impl ConnectionRegistry {
         let timeout_seconds = std::env::var("DISCONNECT_TIMEOUT_SECONDS")
             .ok()
             .and_then(|s| s.parse::<u64>().ok())
-            .unwrap_or(10);
+            .unwrap_or(30);
 
         let timer_task = tokio::spawn(async move {
             sleep(Duration::from_secs(timeout_seconds)).await;
@@ -141,11 +141,16 @@ pub async fn ws_handler(
     ws: WebSocketUpgrade,
     State(state): State<AppState>,
 ) -> Response {
-    ws.on_upgrade(move |socket| handle_socket(socket, state.db, state.registry))
+    ws.on_upgrade(move |socket| handle_socket(socket, state.db, state.registry, state.session_cache))
 }
 
 /// Handle a single WebSocket connection
-async fn handle_socket(socket: WebSocket, db: Arc<Database>, registry: SharedRegistry) {
+async fn handle_socket(
+    socket: WebSocket,
+    db: Arc<Database>,
+    registry: SharedRegistry,
+    session_cache: Arc<crate::session_cache::SessionCache>,
+) {
     let (mut sender, mut receiver) = socket.split();
 
     // Channel to send messages to this client
@@ -169,6 +174,7 @@ async fn handle_socket(socket: WebSocket, db: Arc<Database>, registry: SharedReg
 
     // Handle incoming messages
     let mut player_id: Option<i64> = None;
+    let mut session_token: Option<String> = None;
 
     while let Some(msg) = receiver.next().await {
         match msg {
@@ -177,10 +183,10 @@ async fn handle_socket(socket: WebSocket, db: Arc<Database>, registry: SharedReg
                     println!("[WS RECV] {client_msg:?}");
                     match client_msg {
                         ClientMessage::Authenticate { token } => {
-                            // Authenticate the connection
-                            match authenticate_token(&db, &token).await {
+                            match authenticate_token(&session_cache, &token).await {
                                 Ok(pid) => {
                                     player_id = Some(pid);
+                                    session_token = Some(token.clone());
                                     registry.register(pid, tx.clone(), send_task.abort_handle()).await;
 
                                     let response = ServerMessage::AuthSuccess { player_id: pid };
@@ -207,6 +213,10 @@ async fn handle_socket(socket: WebSocket, db: Arc<Database>, registry: SharedReg
                             }
                         }
                         ClientMessage::Ping => {
+                            // Auto-refresh session on ping/heartbeat
+                            if let Some(ref token) = session_token {
+                                let _ = session_cache.refresh_session(token).await;
+                            }
                             let _ = tx.send(ServerMessage::Pong);
                         }
                         ClientMessage::JoinMatchmaking { game_type } => {
@@ -255,28 +265,14 @@ async fn handle_socket(socket: WebSocket, db: Arc<Database>, registry: SharedReg
     send_task.abort();
 }
 
-/// Authenticate a token and return player_id
-async fn authenticate_token(db: &Database, token: &str) -> Result<i64, String> {
-    // Token format: "player_id:signature"
-    let parts: Vec<&str> = token.split(':').collect();
-    if parts.len() != 2 {
-        return Err("Invalid token format".to_string());
-    }
-
-    let player_id: i64 = parts[0]
-        .parse()
-        .map_err(|_| "Invalid player ID".to_string())?;
-
-    let player = db
-        .get_player_by_id(player_id)
+async fn authenticate_token(
+    session_cache: &crate::session_cache::SessionCache,
+    token: &str,
+) -> Result<i64, String> {
+    session_cache
+        .verify_session(token)
         .await
-        .ok_or_else(|| "Player not found".to_string())?;
-
-    // Verify signature (reuse existing auth logic)
-    crate::auth::verify_signature(&player, parts[1])
-        .map_err(|_| "Invalid signature".to_string())?;
-
-    Ok(player_id)
+        .map_err(|e| format!("Invalid session: {e}"))
 }
 
 /// Handle resume match request

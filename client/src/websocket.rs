@@ -129,7 +129,8 @@ impl WebSocketClient {
             }
         });
 
-        // Spawn keepalive task
+        // Spawn keepalive/token-refresh task
+        // Ping every 30 seconds to keep connection alive and auto-refresh session token
         let tx_keepalive = tx.clone();
         let keepalive_handle = tokio::spawn(async move {
             let mut interval = interval(Duration::from_secs(30));

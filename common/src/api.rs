@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use crate::games::{game_type::GameType, matches::{Match, MatchEndReason}};
+use crate::player::Player;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct CreatePlayerRequest {
@@ -88,4 +89,37 @@ pub struct LeaderboardEntry {
 pub struct LeaderboardResponse {
     pub entries: Vec<LeaderboardEntry>,
     pub total_count: i64,
+}
+
+// New auth flow types
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ChallengeRequest {
+    pub player_id: i64,
+    pub public_key_hint: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ChallengeResponse {
+    pub nonce: String,
+    pub expires_in: u64, // seconds
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct VerifyRequest {
+    pub player_id: i64,
+    pub nonce: String,
+    pub signature: String, // base64 encoded
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct AuthResponse {
+    pub session_token: String,
+    pub expires_at: String, // ISO 8601 timestamp
+    pub player: Player,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct LogoutRequest {
+    pub session_token: String,
 }
