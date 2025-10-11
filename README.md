@@ -30,6 +30,29 @@ There is no account recovery whatsoever, so be sure to keep your keys around if 
 * Something something Tower Defense
 * If you have ideas please send them over!
 
+### Briscola
+```
+  Briscola:   Deck:          Opponent played:   
+  ╭───────╮                  ╭───────╮
+  │     K │   33             │     A │
+  │╰─┼─╮S │   cards          │       │
+  │ ╭┴╮   │   left           │   S   │
+  │ │ │   │                  │       │
+  ╰───────╯                  ╰───────╯
+
+  Your hand:
+  ╭───────╮  ╭───────╮  ╭───────╮  
+  │     4 │  │     2 │  │     7 │  
+  │  S S  │  │       │  │  D D  │  
+  │       │  │  C C  │  │ D D D │  
+  │  S S  │  │       │  │  D D  │  
+  ╰───────╯  ╰───────╯  ╰───────╯  
+     [0]        [1]        [2]        
+
+  Your turn! Enter card index:
+  > 
+```
+
 ### Tic-Tac-Toe
 ```
 ==================================================
