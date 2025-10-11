@@ -78,17 +78,22 @@ impl BriscolaUiState {
                     Suit::Spade => "Spade",
                 };
                 println!("  Briscola: {}", briscola_suit_str.yellow().bold());
-
-                // Trump card and deck count
-                if let Some(trump) = game_state.trump_card {
-                    println!("  Trump card: {}", format_card(&trump).yellow());
-                } else {
-                    println!("  Trump card: {}", "(drawn)".dimmed());
-                }
                 println!(
                     "  Deck: {} cards remaining",
                     game_state.cards_remaining_in_deck
                 );
+                println!();
+
+                // Trump card as ASCII art
+                if let Some(trump) = game_state.trump_card {
+                    println!("{}", "  Trump card:".bold());
+                    let trump_art = card_view(trump.suit, trump.rank);
+                    for line in trump_art {
+                        println!("  {}", line.yellow());
+                    }
+                } else {
+                    println!("  Trump card: {}", "(drawn)".dimmed());
+                }
                 println!();
 
                 // Table (cards played this round)
@@ -105,14 +110,14 @@ impl BriscolaUiState {
                     println!();
                 }
 
-                // Opponent's hand (just count)
-                let opp_hand = if my_player_number == 1 {
-                    &game_state.player2_hand
+                // Opponent's hand (covered cards)
+                let opp_hand_count = if my_player_number == 1 {
+                    game_state.player2_hand.len()
                 } else {
-                    &game_state.player1_hand
+                    game_state.player1_hand.len()
                 };
-                println!("  Opponent has {} cards", opp_hand.len());
-                println!();
+                println!("{}", "  Opponent's hand:".bold());
+                print!("{}", display_opponent_hand_ascii(opp_hand_count));
 
                 // Your hand
                 let my_hand = if my_player_number == 1 {
@@ -800,6 +805,71 @@ fn display_hand_ascii(hand: &[Card]) -> String {
         output.push_str(" ");
     }
     output.push('\n');
+
+    output
+}
+
+/// Display opponent's hand as covered cards
+fn display_opponent_hand_ascii(num_cards: usize) -> String {
+    if num_cards == 0 {
+        return String::new();
+    }
+
+    let mut output = String::new();
+
+    match num_cards {
+        1 => {
+            // Single covered card
+            let lines = vec![
+                "                   ",
+                "╭┬┬┬┬┬┬┬╮          ",
+                "├┼┼┼┼┼┼┼┤          ",
+                "├┼┼┼┼┼┼┼┤          ",
+                "├┼┼┼┼┼┼┼┤          ",
+                "├┼┼┼┼┼┼┼┤          ",
+                "╰┴┴┴┴┴┴┴╯          ",
+            ];
+            for line in lines {
+                output.push_str("  ");
+                output.push_str(line);
+                output.push('\n');
+            }
+        }
+        2 => {
+            // Two covered cards
+            let lines = vec![
+                "     ╭┬┬┬┬┬┬┬╮     ",
+                "╭┬┬┬┬├┼┼┼┼┼┼┼┤     ",
+                "├┼┼┼┼├┼┼┼┼┼┼┼┤     ",
+                "├┼┼┼┼├┼┼┼┼┼┼┼┤     ",
+                "├┼┼┼┼├┼┼┼┼┼┼┼┤     ",
+                "├┼┼┼┼╰┴┴┴┴┴┴┴╯     ",
+                "╰┴┴┴┴┴┴┴╯          ",
+            ];
+            for line in lines {
+                output.push_str("  ");
+                output.push_str(line);
+                output.push('\n');
+            }
+        }
+        _ => {
+            // Three or more covered cards
+            let lines = vec![
+                "╭┬┬┬┬┬┬┬╮ ╭┬┬┬┬┬┬┬╮",
+                "├┼┼┼┼╭┬┬┬┬├┼┼┼┼┼┼┼┤",
+                "├┼┼┼┼├┼┼┼┼├┼┼┼┼┼┼┼┤",
+                "├┼┼┼┼├┼┼┼┼├┼┼┼┼┼┼┼┤",
+                "├┼┼┼┼├┼┼┼┼├┼┼┼┼┼┼┤",
+                "╰┴┴┴┴├┼┼┼┼╰┴┴┴┴┴┴┴╯",
+                "     ╰┴┴┴┴┴┴┴╯     ",
+            ];
+            for line in lines {
+                output.push_str("  ");
+                output.push_str(line);
+                output.push('\n');
+            }
+        }
+    }
 
     output
 }
