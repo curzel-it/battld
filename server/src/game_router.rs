@@ -1,9 +1,10 @@
-use crate::games::{tic_tac_toe::*, rock_paper_scissors::*, briscola::*, GameError};
+use crate::games::{tic_tac_toe::*, rock_paper_scissors::*, briscola::*, chess::*, GameError};
 use battld_common::games::{
     game_type::GameType,
     matches::{Match, MatchOutcome},
     rock_paper_scissors::{RockPaperScissorsGameState, RockPaperScissorsMove},
     briscola::{BriscolaGameState, BriscolaMove},
+    chess::{ChessGameState, ChessMove},
 };
 use serde_json::Value as JsonValue;
 use rand::Rng;
@@ -25,6 +26,7 @@ pub fn handle_game_move(
         GameType::TicTacToe => handle_tic_tac_toe_move(game_match, player_id, move_data),
         GameType::RockPaperScissors => handle_rock_paper_scissors_move(game_match, player_id, move_data),
         GameType::Briscola => handle_briscola_move(game_match, player_id, move_data),
+        GameType::Chess => handle_chess_move(game_match, player_id, move_data),
     }
 }
 
@@ -62,8 +64,16 @@ pub fn redact_match_for_player(match_data: &Match, player_id: i64) -> Match {
             }
         }
         GameType::Briscola => {
-            // Deserialize, redact, and serialize Briscola state
             match serde_json::from_value::<BriscolaGameState>(match_data.game_state.clone()) {
+                Ok(state) => {
+                    let redacted = state.redact_for_player(player_num);
+                    serde_json::to_value(&redacted).unwrap_or(match_data.game_state.clone())
+                }
+                Err(_) => match_data.game_state.clone(),
+            }
+        }
+        GameType::Chess => {
+            match serde_json::from_value::<ChessGameState>(match_data.game_state.clone()) {
                 Ok(state) => {
                     let redacted = state.redact_for_player(player_num);
                     serde_json::to_value(&redacted).unwrap_or(match_data.game_state.clone())
@@ -107,6 +117,10 @@ pub fn initialize_game_state(game_type: &GameType) -> String {
         GameType::Briscola => {
             let mut state = BriscolaGameEngine::new_game();
             state.current_player = first_player;
+            serde_json::to_string(&state).unwrap()
+        }
+        GameType::Chess => {
+            let state = ChessGameState::new();
             serde_json::to_string(&state).unwrap()
         }
     }
@@ -266,10 +280,52 @@ fn handle_briscola_move(
     })
 }
 
+fn handle_chess_move(
+    game_match: &Match,
+    player_id: i64,
+    move_data: JsonValue,
+) -> Result<GameMoveResult, GameError> {
+    let current_state: ChessGameState = serde_json::from_value(game_match.game_state.clone())
+        .map_err(|e| GameError::IllegalMove(format!("Invalid game state: {e}")))?;
+
+    let chess_move: ChessMove = serde_json::from_value(move_data)
+        .map_err(|e| GameError::IllegalMove(format!("Invalid move data: {e}")))?;
+
+    let player_symbol = if player_id == game_match.player1_id {
+        1
+    } else if player_id == game_match.player2_id {
+        2
+    } else {
+        return Err(GameError::InvalidPlayer);
+    };
+
+    let engine = ChessEngine::new();
+    let new_state = engine.update(&current_state, player_symbol, &chess_move)?;
+
+    let new_state_json = serde_json::to_value(&new_state)
+        .map_err(|e| GameError::IllegalMove(format!("Failed to serialize state: {e}")))?;
+
+    let outcome = if new_state.is_finished() {
+        match new_state.get_winner() {
+            Some(1) => Some(MatchOutcome::Player1Win),
+            Some(2) => Some(MatchOutcome::Player2Win),
+            _ => Some(MatchOutcome::Draw),
+        }
+    } else {
+        None
+    };
+
+    Ok(GameMoveResult {
+        new_state: new_state_json,
+        is_finished: new_state.is_finished(),
+        outcome,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
 
     #[test]
     fn test_tic_tac_toe_valid_move() {
@@ -370,6 +426,6 @@ mod tests {
         // Verify the state was updated (player 1's move should be recorded)
         let new_state: RockPaperScissorsGameState = serde_json::from_value(result.new_state).unwrap();
         assert_eq!(new_state.rounds[0].0, Some(RockPaperScissorsMove::Rock));
-        assert_eq!(new_state.rounds[0].1, None); // Player 2 hasn't moved yet
+        assert_eq!(new_state.rounds[0].1, None);
     }
 }

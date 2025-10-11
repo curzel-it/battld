@@ -23,7 +23,7 @@ use stats::*;
 use ui::*;
 use utils::VERSION;
 
-use crate::games::{rock_paper_scissors, tic_tac_toe, briscola};
+use crate::games::{rock_paper_scissors, tic_tac_toe, briscola, chess};
 
 #[tokio::main]
 async fn main() {
@@ -84,8 +84,14 @@ async fn start_app(config_path: &str) -> Result<(), Box<dyn std::error::Error>> 
                 }
             }
             MenuChoice::StartBriscola => {
-                // Start Briscola game flow
                 if let Err(e) = start_game_flow(&mut session, GameType::Briscola).await {
+                    println!("{}", format!("Game error: {e}").red());
+                    println!("\nPress any key to return to menu...");
+                    wait_for_keypress()?;
+                }
+            }
+            MenuChoice::StartChess => {
+                if let Err(e) = start_game_flow(&mut session, GameType::Chess).await {
                     println!("{}", format!("Game error: {e}").red());
                     println!("\nPress any key to return to menu...");
                     wait_for_keypress()?;
@@ -119,6 +125,7 @@ enum MenuChoice {
     StartTicTacToe,
     StartRockPaperScissors,
     StartBriscola,
+    StartChess,
     Stats,
     Leaderboard,
     Exit,
@@ -152,9 +159,10 @@ async fn read_menu_choice(_session: &mut SessionState) -> io::Result<MenuChoice>
         ("1".to_string(), "Start Tic-Tac-Toe Game".to_string()),
         ("2".to_string(), "Start Rock-Paper-Scissors Game".to_string()),
         ("3".to_string(), "Start Briscola Game".to_string()),
-        ("4".to_string(), "Your Stats".to_string()),
-        ("5".to_string(), "Leaderboard".to_string()),
-        ("6".to_string(), "Exit".to_string()),
+        ("4".to_string(), "Start Chess Game".to_string()),
+        ("5".to_string(), "Your Stats".to_string()),
+        ("6".to_string(), "Leaderboard".to_string()),
+        ("7".to_string(), "Exit".to_string()),
     ];
 
     let title = format!("v{VERSION}");
@@ -171,11 +179,12 @@ async fn read_menu_choice(_session: &mut SessionState) -> io::Result<MenuChoice>
                     "1" => return Ok(MenuChoice::StartTicTacToe),
                     "2" => return Ok(MenuChoice::StartRockPaperScissors),
                     "3" => return Ok(MenuChoice::StartBriscola),
-                    "4" => return Ok(MenuChoice::Stats),
-                    "5" => return Ok(MenuChoice::Leaderboard),
-                    "6" => return Ok(MenuChoice::Exit),
+                    "4" => return Ok(MenuChoice::StartChess),
+                    "5" => return Ok(MenuChoice::Stats),
+                    "6" => return Ok(MenuChoice::Leaderboard),
+                    "7" => return Ok(MenuChoice::Exit),
                     _ => {
-                        println!("{}", "Invalid choice. Please enter 1-6.".red());
+                        println!("{}", "Invalid choice. Please enter 1-7.".red());
                         continue;
                     }
                 }
@@ -222,6 +231,9 @@ async fn check_and_handle_resumable_match(session: &mut SessionState) -> Result<
                 GameType::Briscola => {
                     briscola::resume_game(session, game_match).await?;
                 }
+                GameType::Chess => {
+                    chess::resume_game(session, game_match).await?;
+                }
             }
 
             return Ok(());
@@ -258,6 +270,7 @@ async fn start_game_flow(session: &mut SessionState, game_type: GameType) -> Res
         GameType::TicTacToe => games::tic_tac_toe::start_game(session, game_type).await?,
         GameType::RockPaperScissors => games::rock_paper_scissors::start_game(session, game_type).await?,
         GameType::Briscola => games::briscola::start_game(session, game_type).await?,
+        GameType::Chess => games::chess::start_game(session, game_type).await?,
     }
 
     Ok(())

@@ -1,6 +1,7 @@
 pub mod tic_tac_toe;
 pub mod rock_paper_scissors;
 pub mod briscola;
+pub mod chess;
 
 use std::fmt;
 
