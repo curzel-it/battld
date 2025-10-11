@@ -67,8 +67,8 @@ impl BriscolaUiState {
                 };
                 let deck_art = display_deck_ascii(game_state.cards_remaining_in_deck);
 
-                // Check if there's a card on the table
-                let table_card_art = if game_state.table.len() == 1 {
+                // Check if there's a card on the table (show the first card played)
+                let table_card_art = if !game_state.table.is_empty() {
                     let (card, player) = game_state.table[0];
                     let first_player_is_me = player == my_player_number;
                     Some((card_view(card.suit, card.rank), first_player_is_me))
