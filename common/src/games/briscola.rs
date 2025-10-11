@@ -72,6 +72,9 @@ pub struct BriscolaGameState {
     // The trump card (visible to both players, None after it's drawn)
     pub trump_card: Option<Card>,
 
+    // The briscola suit (always visible, even after trump card is drawn)
+    pub briscola_suit: Suit,
+
     // Collected cards (for scoring)
     pub player1_pile: Vec<Card>,
     pub player2_pile: Vec<Card>,
@@ -93,6 +96,7 @@ impl BriscolaGameState {
             deck: Vec::new(),
             cards_remaining_in_deck: 0,
             trump_card: None,
+            briscola_suit: Suit::Bastoni, // Default, will be set properly when game starts
             player1_pile: Vec::new(),
             player2_pile: Vec::new(),
             current_player: 1,

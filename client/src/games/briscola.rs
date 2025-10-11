@@ -70,20 +70,25 @@ impl BriscolaUiState {
                 );
                 println!();
 
+                // Briscola suit
+                let briscola_suit_str = match game_state.briscola_suit {
+                    Suit::Bastoni => "Bastoni",
+                    Suit::Coppe => "Coppe",
+                    Suit::Denari => "Denari",
+                    Suit::Spade => "Spade",
+                };
+                println!("  Briscola: {}", briscola_suit_str.yellow().bold());
+
                 // Trump card and deck count
                 if let Some(trump) = game_state.trump_card {
-                    println!("  Trump: {}", format_card(&trump).yellow().bold());
-                    println!(
-                        "  Deck: {} cards remaining",
-                        game_state.cards_remaining_in_deck
-                    );
+                    println!("  Trump card: {}", format_card(&trump).yellow());
                 } else {
-                    println!("  Trump: {}", "(drawn)".dimmed());
-                    println!(
-                        "  Deck: {} cards remaining",
-                        game_state.cards_remaining_in_deck
-                    );
+                    println!("  Trump card: {}", "(drawn)".dimmed());
                 }
+                println!(
+                    "  Deck: {} cards remaining",
+                    game_state.cards_remaining_in_deck
+                );
                 println!();
 
                 // Table (cards played this round)
@@ -325,6 +330,7 @@ fn handle_match_found_or_update(
     my_player_id: i64,
     my_number: &mut Option<i32>,
     opponent_disconnected: &mut bool,
+    ui_state: &BriscolaUiState,
 ) -> Result<Option<BriscolaUiState>, Box<dyn std::error::Error>> {
     // Determine player number
     if my_number.is_none() {
@@ -346,6 +352,19 @@ fn handle_match_found_or_update(
     // Determine if it's your turn
     let your_turn = game_state.current_player == my_number.unwrap();
 
+    // Check if we're transitioning to a state where we can play
+    let was_waiting = matches!(
+        ui_state,
+        BriscolaUiState::PlayingGame { your_turn: false, .. } |
+        BriscolaUiState::WaitingForOpponentToReconnect { .. } |
+        BriscolaUiState::WaitingForOpponentToJoin
+    );
+
+    // If we're now able to play but weren't before, drain buffered input
+    if your_turn && was_waiting {
+        crate::ui::drain_stdin_buffer();
+    }
+
     // If opponent reconnected, clear the flag
     if *opponent_disconnected {
         *opponent_disconnected = false;
@@ -366,7 +385,7 @@ fn handle_game_state_update(
     opponent_disconnected: &mut bool,
 ) -> Option<BriscolaUiState> {
     // Use the same logic as match found/update
-    match handle_match_found_or_update(match_data, my_player_id, my_number, opponent_disconnected)
+    match handle_match_found_or_update(match_data, my_player_id, my_number, opponent_disconnected, ui_state)
     {
         Ok(Some(new_state)) => Some(new_state),
         _ => None,
@@ -503,6 +522,7 @@ async fn run_game_loop(
                                 my_player_id,
                                 &mut my_number,
                                 &mut opponent_disconnected,
+                                &ui_state,
                             ) {
                                 let should_exit = matches!(
                                     new_state,

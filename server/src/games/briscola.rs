@@ -26,7 +26,8 @@ impl BriscolaGameEngine {
         }
 
         // Set trump card
-        let trump_card = Some(deck.pop().unwrap());
+        let trump_card = deck.pop().unwrap();
+        let briscola_suit = trump_card.suit;
 
         // Remaining deck has 33 cards
         let cards_remaining_in_deck = deck.len();
@@ -37,7 +38,8 @@ impl BriscolaGameEngine {
             table: Vec::new(),
             deck,
             cards_remaining_in_deck,
-            trump_card,
+            trump_card: Some(trump_card),
+            briscola_suit,
             player1_pile: Vec::new(),
             player2_pile: Vec::new(),
             current_player: 1, // Will be randomized in initialize_game_state
@@ -144,12 +146,8 @@ impl BriscolaGameEngine {
         let (first_card, first_player) = state.table[0];
         let (second_card, _second_player) = state.table[1];
 
-        let trump_suit = state
-            .trump_card
-            .ok_or_else(|| {
-                GameError::IllegalMove("Cannot resolve round without trump card".to_string())
-            })?
-            .suit;
+        // Use briscola_suit instead of trump_card, so it works even after trump is drawn
+        let trump_suit = state.briscola_suit;
 
         let round_winner = Self::determine_round_winner(first_card, second_card, trump_suit, first_player);
 
