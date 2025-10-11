@@ -4,53 +4,135 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>battld</title>
+    <title>Battld</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300..700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/style.css">
     <link rel="icon" href="/static/favicon.ico">
+
+    <style>
+        * {
+            font-family: "Fira Code", 'Courier New', monospace;
+            font-optical-sizing: auto;
+            font-style: normal;
+            font-size: 12pt;
+        }
+
+        h1 {
+            font-size: 24pt;
+        }
+
+        h2 {
+            font-size: 18pt;
+        }
+
+        h3 {
+            font-size: 14pt;
+        }
+
+        h4 {
+            font-size: 12pt;
+        }
+
+        body {
+            background-color: black;
+            color: #ddd;
+            padding: 8px;
+        }
+
+        .logo {
+            color: #00ffff;
+        }
+
+        pre {
+            padding: 16px;
+            border-radius: 8px;
+            background-color: #222;
+            overflow-x: auto;
+        }
+
+        .cta {
+            max-width: 150px;
+        }
+    </style>
 </head>
 
 <body>
-    <div class="logo">
-    ░█▀▄░█▀█░▀█▀░▀█▀░█░░░█▀▄<br>
-    ░█▀▄░█▀█░░█░░░█░░█░░░█░█<br>
-    ░▀▀░░▀░▀░░▀░░░▀░░▀▀▀░▀▀░<br>
-    </div>
-    <br>
-    $ play in the terminal<br>
-    <br>
-    Hub for turn-based multiplayer games<br>
-    you can play in the terminal<br>
-    <br>
-    <br>
-    $ ssh key authentication<br>
-    <br>
-    No passwords, no OAuth<br>
-    Just your SSH public key<br>
-    <br>
-    <br>
-    $ bring your own UI<br>
-    <br>
-    WebSocket API for custom<br>
-    clients and interfaces<br>
-    <br>
-    <br>
-    $ built with rust<br>
-    <br>
-    Idk, everyone seems to think the language<br>
-    you use it's a feature<br>
-    <br>
-    <br>
-    $ curl -s https://battld.curzel.it/install.sh | sh<br>
-    <br>
-    Just kidding, <br>
-    that's not even the correct domain <br>
-    lol<br>
-    <br>
-    <br>
-    Coming eventually™️<br>
+    <pre class="logo">
+░█▀▄░█▀█░▀█▀░▀█▀░█░░░█▀▄
+░█▀▄░█▀█░░█░░░█░░█░░░█░█
+░▀▀░░▀░▀░░▀░░░▀░░▀▀▀░▀▀░
+</pre>
+    <p>Battld is a hub of for turn-based multiplayer games you can play in the terminal.</p>
+    <h2>Run the client</h2>
+    <p>You&#x27;ll need rust, cargo, etc, then:</p>
+    <pre>
+git clone https://github.com/curzel-it/battld
+cd battld
+cargo run --bin client
+</pre>
+    <a href="https://github.com/curzel-it/battld">
+        <img class="cta" src="/static/github_badge.webp" />
+    </a>
+    <h2>Games</h2>
+    <h3>Coming Soon</h3>
+    <ul>
+        <li>5-Cards poker</li>
+        <li>Something something Tower Defense</li>
+        <li>If you have ideas please send them over!</li>
+    </ul>
+    <h3>Tic-Tac-Toe</h3>
+    <pre>
+==================================================
+  Tic-Tac-Toe
+==================================================
+
+  You are: X
+
+   X | · | · 
+  ---+---+---
+   · | O | · 
+  ---+---+---
+   · | · | · 
+
+  YOUR TURN
+
+  Enter move as &#x27;row col&#x27; (0-indexed, e.g., &#x27;1 2&#x27;):
+</pre>
+    <h3>Rock-Paper-Scissors</h3>
+    <pre>
+==================================================
+  Rock-Paper-Scissors
+==================================================
+
+  Previous Rounds:
+
+    Round 1: Paper vs Rock - WIN
+
+  Current Round:
+
+    Opponent is choosing...
+    You haven&#x27;t selected yet
+
+  SELECT YOUR MOVE
+
+  Enter your choice (rock/paper/scissors):
+  &gt; 
+</pre>
+    <h2>BYOC - Bring Your Own Client</h2>
+    <p>Custom clients will always be allowed for all games on the platform, so, if you want to develop something cool,
+        go ahead!</p>
+    <p>There is also no reason in 2025 to even attempt to fight aganist bots, so yeah, bots allowed.</p>
+    <p>There will be (when out of beta), however, VERY stringent rate limiting for both API and WebSockets, making the
+        use of Bots a double edged sword.</p>
+    <p>As for now, there&#x27;s no documentation of the API or the WebSockets messages whatsoever, so I suggest you run
+        a local http server and use a proxy to see how everything works.</p>
+    <h2>Run the server</h2>
+    <p>Feel free to run your own server, just note this is still in active development:</p>
+    <pre>
+cargo run --bin server
+</pre>
+    <p>Good luck!</p>
 </body>
 
 </html>
