@@ -1,17 +1,11 @@
-use axum::{
-    extract::{
-        ws::{Message, WebSocket, WebSocketUpgrade},
-        State,
-    },
-    response::Response,
-};
+use axum::{extract::{ws::{Message, WebSocket, WebSocketUpgrade}, State}, response::Response};
 use futures::{sink::SinkExt, stream::StreamExt};
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::{mpsc, RwLock};
 use tokio::task::AbortHandle;
 use tokio::time::{Duration, sleep};
 
-use battld_common::{games::game_type::GameType, ClientMessage, ServerMessage};
+use battld_common::{games::game_type::{self, GameType}, ClientMessage, ServerMessage};
 use crate::{database::Database, AppState, game_logic};
 use crate::game_logic::OutgoingMessage;
 
@@ -88,21 +82,18 @@ impl ConnectionRegistry {
         }
     }
 
-    /// Start a disconnect timer for a player in a match
     pub async fn start_disconnect_timer(
         &self,
         player_id: i64,
         match_id: i64,
+        game_type: GameType,
         db: Arc<Database>,
         registry: SharedRegistry,
     ) {
-        // Cancel any existing timer for this player
         self.cancel_disconnect_timer(player_id).await;
 
-        let timeout_seconds = std::env::var("DISCONNECT_TIMEOUT_SECONDS")
-            .ok()
-            .and_then(|s| s.parse::<u64>().ok())
-            .unwrap_or(30);
+        let config = game_type::get_game_config(&game_type);
+        let timeout_seconds = config.disconnect_timeout_secs;
 
         let timer_task = tokio::spawn(async move {
             sleep(Duration::from_secs(timeout_seconds)).await;
@@ -115,10 +106,9 @@ impl ConnectionRegistry {
             match_id,
             timer_handle: timer_task.abort_handle(),
         });
-        println!("Started {timeout_seconds}s disconnect timer for player {player_id} in match {match_id}");
+        println!("Started {timeout_seconds}s disconnect timer for player {player_id} in match {match_id} (game: {game_type:?})");
     }
 
-    /// Cancel a disconnect timer for a player (they reconnected)
     pub async fn cancel_disconnect_timer(&self, player_id: i64) {
         let mut disconnects = self.disconnects.write().await;
         if let Some(info) = disconnects.remove(&player_id) {
@@ -127,7 +117,6 @@ impl ConnectionRegistry {
         }
     }
 
-    /// Check if a player has a resumable match
     pub async fn get_resumable_match(&self, player_id: i64) -> Option<i64> {
         let disconnects = self.disconnects.read().await;
         disconnects.get(&player_id).map(|info| info.match_id)
@@ -305,7 +294,6 @@ async fn handle_make_move(
     registry.send_messages(messages).await;
 }
 
-/// Handle disconnect - start grace period timer instead of immediately ending match
 async fn handle_disconnect(
     player_id: i64,
     db: &Arc<Database>,
@@ -314,20 +302,27 @@ async fn handle_disconnect(
     let (messages, match_id_opt) = game_logic::handle_disconnect_logic(player_id, db).await;
     registry.send_messages(messages).await;
 
-    // Start disconnect timer if player was in an active match
     if let Some(match_id) = match_id_opt {
-        registry.start_disconnect_timer(player_id, match_id, db.clone(), registry.clone()).await;
+        if let Some(match_record) = db.get_match_by_id(match_id).await {
+            if let Some(match_info) = match_record.to_match() {
+                registry.start_disconnect_timer(
+                    player_id,
+                    match_id,
+                    match_info.game_type,
+                    db.clone(),
+                    registry.clone()
+                ).await;
+            }
+        }
     }
 }
 
-/// Handle disconnect timeout - called when 10s grace period expires
 async fn handle_disconnect_timeout(
     player_id: i64,
     match_id: i64,
     db: &Arc<Database>,
     registry: &SharedRegistry,
 ) {
-    // Remove player from disconnects map (timer expired)
     {
         let mut disconnects = registry.disconnects.write().await;
         disconnects.remove(&player_id);

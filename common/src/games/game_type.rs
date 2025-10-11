@@ -18,3 +18,16 @@ impl fmt::Display for GameType {
         }
     }
 }
+
+#[derive(Debug, Clone)]
+pub struct GameConfig {
+    pub disconnect_timeout_secs: u64,
+}
+
+pub fn get_game_config(game_type: &GameType) -> GameConfig {
+    match game_type {
+        GameType::TicTacToe | GameType::RockPaperScissors | GameType::Briscola => GameConfig {
+            disconnect_timeout_secs: 30
+        }
+    }
+}
