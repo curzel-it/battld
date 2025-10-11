@@ -51,73 +51,70 @@ impl BriscolaUiState {
             } => {
                 let game_state = parse_game_state(match_data);
 
-                println!("\n{}", "=".repeat(50));
-                println!("{}", "  Briscola".bright_cyan().bold());
-                println!("{}", "=".repeat(50));
                 println!();
+                println!("{}", "|============================================================|".bright_cyan());
+                println!("{}", "|                                                            |");
 
-                // Scores
-                let (p1_score, p2_score) = game_state.get_score();
-                let (my_score, opp_score) = if my_player_number == 1 {
-                    (p1_score, p2_score)
+                // Previous round information (only if table is empty and rounds have been played)
+                // We can't track previous rounds perfectly without state, so we'll skip for now
+                println!("{}", "|                                                            |");
+
+                // Get card arts for the layout
+                let trump_art = if let Some(trump) = game_state.trump_card {
+                    card_view(trump.suit, trump.rank)
                 } else {
-                    (p2_score, p1_score)
+                    vec![]
                 };
-                println!(
-                    "  Score: {} - {}",
-                    format!("You {}", my_score).bright_green(),
-                    format!("{} Opponent", opp_score).red()
-                );
-                println!();
+                let deck_art = display_deck_ascii(game_state.cards_remaining_in_deck);
 
-                // Briscola suit
-                let briscola_suit_str = match game_state.briscola_suit {
-                    Suit::Bastoni => "Bastoni",
-                    Suit::Coppe => "Coppe",
-                    Suit::Denari => "Denari",
-                    Suit::Spade => "Spade",
+                // Check if there's a card on the table
+                let table_card_art = if game_state.table.len() == 1 {
+                    let (card, player) = game_state.table[0];
+                    let first_player_is_me = player == my_player_number;
+                    Some((card_view(card.suit, card.rank), first_player_is_me))
+                } else {
+                    None
                 };
-                println!("  Briscola: {}", briscola_suit_str.yellow().bold());
-                println!(
-                    "  Deck: {} cards remaining",
-                    game_state.cards_remaining_in_deck
-                );
-                println!();
 
-                // Trump card as ASCII art
-                if let Some(trump) = game_state.trump_card {
-                    println!("{}", "  Trump card:".bold());
-                    let trump_art = card_view(trump.suit, trump.rank);
-                    for line in trump_art {
-                        println!("  {}", line.yellow());
+                // Line 1: Headers
+                let briscola_header = if trump_art.is_empty() { "Briscola (drawn):" } else { "Briscola:" };
+                let table_header = if let Some((_, is_me)) = &table_card_art {
+                    if *is_me { "You played:" } else { "Opponent played:" }
+                } else {
+                    ""
+                };
+                println!("|  {}   Deck:                      {}   |", briscola_header, table_header);
+
+                // Lines 2-7: Cards side by side
+                for line_idx in 0..6 {
+                    print!("|  ");
+
+                    // Briscola card or empty space
+                    if !trump_art.is_empty() {
+                        print!("{}", trump_art[line_idx].yellow());
+                    } else {
+                        print!("         "); // 9 spaces for card width
                     }
-                } else {
-                    println!("  Trump card: {}", "(drawn)".dimmed());
-                }
-                println!();
 
-                // Table (cards played this round)
-                if !game_state.table.is_empty() {
-                    println!("{}", "  On table:".bold());
-                    for (card, player) in &game_state.table {
-                        let who = if *player == my_player_number {
-                            "You".bright_green()
-                        } else {
-                            "Opponent".red()
-                        };
-                        println!("    {} played {}", who, format_card(card));
+                    print!("   ");
+
+                    // Deck
+                    print!("{}", deck_art[line_idx]);
+
+                    // Padding to table card
+                    print!("                  ");
+
+                    // Table card or empty space
+                    if let Some((art, _)) = &table_card_art {
+                        print!("{}", art[line_idx]);
+                    } else {
+                        print!("         "); // 9 spaces
                     }
-                    println!();
+
+                    println!("          |");
                 }
 
-                // Opponent's hand (covered cards)
-                let opp_hand_count = if my_player_number == 1 {
-                    game_state.player2_hand.len()
-                } else {
-                    game_state.player1_hand.len()
-                };
-                println!("{}", "  Opponent's hand:".bold());
-                print!("{}", display_opponent_hand_ascii(opp_hand_count));
+                println!("{}", "|                                                            |");
 
                 // Your hand
                 let my_hand = if my_player_number == 1 {
@@ -125,23 +122,58 @@ impl BriscolaUiState {
                 } else {
                     &game_state.player2_hand
                 };
-                println!("{}", "  Your hand:".bold());
-                print!("{}", display_hand_ascii(my_hand));
+
+                println!("|  Your hand:                                                |");
+
+                if !my_hand.is_empty() {
+                    let hand_arts: Vec<Vec<String>> = my_hand
+                        .iter()
+                        .map(|card| card_view(card.suit, card.rank))
+                        .collect();
+
+                    // Display cards side by side
+                    for line_idx in 0..6 {
+                        print!("|  ");
+                        for card_art in &hand_arts {
+                            print!("{}  ", card_art[line_idx]);
+                        }
+                        // Pad the rest of the line
+                        let used_width = 2 + (my_hand.len() * 11); // 2 for "|  ", 11 per card (9 + 2 spacing)
+                        let padding = 60 - used_width;
+                        print!("{}", " ".repeat(padding));
+                        println!("|");
+                    }
+
+                    // Card indices
+                    print!("|     ");
+                    for i in 0..my_hand.len() {
+                        print!("[{}]        ", i);
+                    }
+                    let used_width = 5 + (my_hand.len() * 11);
+                    let padding = 60 - used_width;
+                    print!("{}", " ".repeat(padding));
+                    println!("|");
+                }
+
+                println!("{}", "|                                                            |");
 
                 // Input prompt or waiting message
                 if *opponent_disconnected {
-                    println!("{}", "  Opponent disconnected. Waiting for reconnection...".yellow());
+                    println!("|  {}  |", "Opponent disconnected. Waiting for reconnection...".yellow());
                 } else if *your_turn {
-                    println!(
-                        "{}",
-                        "  Your turn! Enter card index:".bright_green().bold()
-                    );
+                    println!("|  {}              |", "Your turn! Enter card index:".bright_green().bold());
+                    println!("|  >                                                         |");
+                } else {
+                    println!("|  {}                       |", "Waiting for opponent...".dimmed());
+                }
+
+                println!("{}", "|                                                            |");
+                println!("{}", "|============================================================|".bright_cyan());
+
+                if *your_turn && !*opponent_disconnected {
                     print!("  > ");
                     io::stdout().flush().ok();
-                } else {
-                    println!("{}", "  Waiting for opponent...".dimmed());
                 }
-                println!();
             }
             BriscolaUiState::WaitingForOpponentToReconnect { match_data } => {
                 let game_state = parse_game_state(match_data);
@@ -872,4 +904,16 @@ fn display_opponent_hand_ascii(num_cards: usize) -> String {
     }
 
     output
+}
+
+/// Display deck as covered card with count
+fn display_deck_ascii(count: usize) -> Vec<String> {
+    vec![
+        format!("╭┬┬┬┬┬┬┬╮"),
+        format!("├┼┼┼┼┼┼┼┤"),
+        format!("├┼┼┼┼┼┼┼┤ x {}", count),
+        format!("├┼┼┼┼┼┼┼┤"),
+        format!("├┼┼┼┼┼┼┼┤"),
+        format!("╰┴┴┴┴┴┴┴╯"),
+    ]
 }
