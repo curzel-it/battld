@@ -636,6 +636,51 @@ pub async fn resume_game(
     run_game_loop(ws_client, my_player_id, initial_state, my_number).await
 }
 
+pub fn covered_card() -> Vec<String> {
+    return vec![
+        "                   ".to_string(),
+        "╭┬┬┬┬┬┬┬╮          ".to_string(),
+        "├┼┼┼┼┼┼┼┤          ".to_string(),
+        "├┼┼┼┼┼┼┼┤          ".to_string(),
+        "├┼┼┼┼┼┼┼┤          ".to_string(),
+        "├┼┼┼┼┼┼┼┤          ".to_string(),
+        "╰┴┴┴┴┴┴┴╯          ".to_string(),
+    ];
+
+    /* Two covered cards
+    return vec![
+        "     ╭┬┬┬┬┬┬┬╮     ".to_string(),
+        "╭┬┬┬┬├┼┼┼┼┼┼┼┤     ".to_string(),
+        "├┼┼┼┼├┼┼┼┼┼┼┼┤     ".to_string(),
+        "├┼┼┼┼├┼┼┼┼┼┼┼┤     ".to_string(),
+        "├┼┼┼┼├┼┼┼┼┼┼┼┤     ".to_string(),
+        "├┼┼┼┼╰┴┴┴┴┴┴┴╯     ".to_string(),
+        "╰┴┴┴┴┴┴┴╯          ".to_string(),
+    ]; 
+    
+    Three covered cards
+    return vec![
+        "╭┬┬┬┬┬┬┬╮ ╭┬┬┬┬┬┬┬╮".to_string(),
+        "├┼┼┼┼╭┬┬┬┬├┼┼┼┼┼┼┼┤".to_string(),
+        "├┼┼┼┼├┼┼┼┼├┼┼┼┼┼┼┼┤".to_string(),
+        "├┼┼┼┼├┼┼┼┼├┼┼┼┼┼┼┼┤".to_string(),
+        "├┼┼┼┼├┼┼┼┼├┼┼┼┼┼┼┼┤".to_string(),
+        "╰┴┴┴┴├┼┼┼┼╰┴┴┴┴┴┴┴╯".to_string(),
+        "     ╰┴┴┴┴┴┴┴╯     ".to_string(),
+    ]; 
+    
+    N covered cards
+    return vec![
+        "                   ".to_string(),
+        "╭┬┬┬┬┬┬┬╮          ".to_string(),
+        "├┼┼┼┼┼┼┼┤          ".to_string(),
+        "├┼┼┼┼┼┼┼┤ x N      ".to_string(),
+        "├┼┼┼┼┼┼┼┤          ".to_string(),
+        "├┼┼┼┼┼┼┼┤          ".to_string(),
+        "╰┴┴┴┴┴┴┴╯          ".to_string(),
+    ]; */
+}
+
 /// Returns ASCII art representation of a card as a vector of lines
 pub fn card_view(suit: Suit, rank: Rank) -> Vec<String> {
     let rank_str = match rank {
