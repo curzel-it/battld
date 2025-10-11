@@ -5,7 +5,7 @@
 ░▀▀░░▀░▀░░▀░░░▀░░▀▀▀░▀▀░
 ```
 
-Battld is a hub of for turn-based multiplayer games you can play in the terminal.
+Battld is a hub for turn-based multiplayer games you can play in the terminal.
 
 Join the Beta!
 
@@ -29,6 +29,29 @@ There is no account recovery whatsoever, so be sure to keep your keys around if 
 * 5-Cards poker
 * Something something Tower Defense
 * If you have ideas please send them over!
+
+### Briscola
+```
+  Briscola:   Deck:          Opponent played:   
+  ╭───────╮                  ╭───────╮
+  │     K │   33             │     A │
+  │╰─┼─╮S │   cards          │       │
+  │ ╭┴╮   │   left           │   S   │
+  │ │ │   │                  │       │
+  ╰───────╯                  ╰───────╯
+
+  Your hand:
+  ╭───────╮  ╭───────╮  ╭───────╮  
+  │     4 │  │     2 │  │     7 │  
+  │  S S  │  │       │  │  D D  │  
+  │       │  │  C C  │  │ D D D │  
+  │  S S  │  │       │  │  D D  │  
+  ╰───────╯  ╰───────╯  ╰───────╯  
+     [0]        [1]        [2]        
+
+  Your turn! Enter card index:
+  > 
+```
 
 ### Tic-Tac-Toe
 ```
