@@ -86,22 +86,30 @@ impl BriscolaUiState {
                     Suit::Spade => "Spade",
                 };
 
-                let briscola_header = if trump_art.is_empty() {
-                    format!("Briscola: {}", briscola_suit_str)
-                } else {
-                    "Briscola:".to_string()
-                };
-
-                let deck_header = if trump_art.is_empty() { "" } else { "Deck:" };
+                let deck_header = if trump_art.is_empty() { "     " } else { "Deck:" };
 
                 let table_header = if let Some((_, is_me)) = &table_card_art {
                     if *is_me { "You played:" } else { "Opponent played:" }
                 } else {
                     ""
                 };
-                println!("  {}   {}          {}   ", briscola_header, deck_header, table_header);
+                println!("  Briscola:   {}          {}   ", deck_header, table_header);
 
                 // Lines 2-7: Cards side by side
+                // Prepare briscola text (suit name or empty if card shown)
+                let briscola_text = if trump_art.is_empty() {
+                    [
+                        briscola_suit_str.to_string(),
+                        "".to_string(),
+                        "".to_string(),
+                        "".to_string(),
+                        "".to_string(),
+                        "".to_string(),
+                    ]
+                } else {
+                    ["".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string()]
+                };
+
                 let deck_text = if trump_art.is_empty() {
                     // No deck info when trump is drawn
                     [
@@ -126,11 +134,11 @@ impl BriscolaUiState {
                 for line_idx in 0..6 {
                     print!("  ");
 
-                    // Briscola card or empty space
+                    // Briscola card or suit text
                     if !trump_art.is_empty() {
                         print!("{}", trump_art[line_idx].yellow());
                     } else {
-                        print!("         "); // 9 spaces for card width
+                        print!("{:<9}", briscola_text[line_idx]); // 9 chars for card width
                     }
 
                     print!("   ");
