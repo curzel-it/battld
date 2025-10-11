@@ -79,23 +79,49 @@ impl BriscolaUiState {
                 };
 
                 // Line 1: Headers
-                let briscola_header = if trump_art.is_empty() { "Briscola (drawn):" } else { "Briscola:" };
+                let briscola_suit_str = match game_state.briscola_suit {
+                    Suit::Bastoni => "Bastoni",
+                    Suit::Coppe => "Coppe",
+                    Suit::Denari => "Denari",
+                    Suit::Spade => "Spade",
+                };
+
+                let briscola_header = if trump_art.is_empty() {
+                    format!("Briscola: {}", briscola_suit_str)
+                } else {
+                    "Briscola:".to_string()
+                };
+
+                let deck_header = if trump_art.is_empty() { "" } else { "Deck:" };
+
                 let table_header = if let Some((_, is_me)) = &table_card_art {
                     if *is_me { "You played:" } else { "Opponent played:" }
                 } else {
                     ""
                 };
-                println!("  {}   Deck:          {}   ", briscola_header, table_header);
+                println!("  {}   {}          {}   ", briscola_header, deck_header, table_header);
 
                 // Lines 2-7: Cards side by side
-                let deck_text = [
-                    "".to_string(),
-                    format!("{}", game_state.cards_remaining_in_deck),
-                    "cards".to_string(),
-                    "left".to_string(),
-                    "".to_string(),
-                    "".to_string(),
-                ];
+                let deck_text = if trump_art.is_empty() {
+                    // No deck info when trump is drawn
+                    [
+                        "".to_string(),
+                        "".to_string(),
+                        "".to_string(),
+                        "".to_string(),
+                        "".to_string(),
+                        "".to_string(),
+                    ]
+                } else {
+                    [
+                        "".to_string(),
+                        format!("{}", game_state.cards_remaining_in_deck),
+                        "cards".to_string(),
+                        "left".to_string(),
+                        "".to_string(),
+                        "".to_string(),
+                    ]
+                };
 
                 for line_idx in 0..6 {
                     print!("  ");
