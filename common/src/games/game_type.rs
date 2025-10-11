@@ -6,6 +6,7 @@ use std::fmt;
 pub enum GameType {
     TicTacToe,
     RockPaperScissors,
+    Briscola,
 }
 
 impl fmt::Display for GameType {
@@ -13,6 +14,7 @@ impl fmt::Display for GameType {
         match self {
             GameType::TicTacToe => write!(f, "Tic-Tac-Toe"),
             GameType::RockPaperScissors => write!(f, "Rock-Paper-Scissors"),
+            GameType::Briscola => write!(f, "Briscola"),
         }
     }
 }
