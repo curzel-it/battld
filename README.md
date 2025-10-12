@@ -25,10 +25,7 @@ You will be prompted to create a ssh keys pair and provide a username.
 There is no account recovery whatsoever, so be sure to keep your keys around if you like the game.
 
 ## Games
-### Coming Soon
-* 5-Cards poker
-* Something something Tower Defense
-* If you have ideas please send them over!
+If you have ideas please send them over!
 
 ### Briscola
 ```

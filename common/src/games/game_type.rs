@@ -7,6 +7,7 @@ pub enum GameType {
     TicTacToe,
     RockPaperScissors,
     Briscola,
+    Chess,
 }
 
 impl fmt::Display for GameType {
@@ -15,6 +16,20 @@ impl fmt::Display for GameType {
             GameType::TicTacToe => write!(f, "Tic-Tac-Toe"),
             GameType::RockPaperScissors => write!(f, "Rock-Paper-Scissors"),
             GameType::Briscola => write!(f, "Briscola"),
+            GameType::Chess => write!(f, "Chess"),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct GameConfig {
+    pub disconnect_timeout_secs: u64,
+}
+
+pub fn get_game_config(game_type: &GameType) -> GameConfig {
+    match game_type {
+        GameType::TicTacToe | GameType::RockPaperScissors | GameType::Briscola | GameType::Chess => GameConfig {
+            disconnect_timeout_secs: 30
         }
     }
 }
