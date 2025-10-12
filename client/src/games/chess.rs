@@ -111,8 +111,8 @@ impl ChessUiState {
     }
 }
 
-fn get_piece_symbol(piece: &ChessPieceState) -> ColoredString {
-    let symbol = match (piece.player, piece.piece) {
+fn get_piece_symbol(piece: &ChessPieceState) -> &str {
+    return match (piece.player, piece.piece) {
         (Player::White, ChessPiece::Pawn) => "♙",
         (Player::White, ChessPiece::Rook) => "♖",
         (Player::White, ChessPiece::Knight) => "♘",
@@ -126,11 +126,6 @@ fn get_piece_symbol(piece: &ChessPieceState) -> ColoredString {
         (Player::Black, ChessPiece::Queen) => "♛",
         (Player::Black, ChessPiece::King) => "♚",
     };
-
-    match piece.player {
-        Player::White => symbol.white(),
-        Player::Black => symbol.bright_black(),
-    }
 }
 
 fn render_game_board(match_data: &Match, my_player: Player) {
@@ -150,10 +145,10 @@ fn render_game_board(match_data: &Match, my_player: Player) {
         }
 
         println!();
-        println!("    a b c d e f g h");
+        println!("  {}", "a b c d e f g h".dimmed());
 
         for row in (0..8).rev() {
-            print!("  {} ", row + 1);
+            print!("{} ", format!("{}", row + 1).dimmed());
             for col in 0..8 {
                 let pos = ChessPosition::new(row, col).unwrap();
                 if let Some(piece) = game_state.get_piece(pos) {
@@ -162,10 +157,10 @@ fn render_game_board(match_data: &Match, my_player: Player) {
                     print!("{} ", "·".dimmed());
                 }
             }
-            println!("{}", row + 1);
+            println!("{}", format!("{}", row + 1).dimmed());
         }
 
-        println!("    a b c d e f g h");
+        println!("  {}", "a b c d e f g h".dimmed());
     }
 }
 
