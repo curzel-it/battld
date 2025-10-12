@@ -90,13 +90,13 @@ async fn start_app(config_path: &str) -> Result<(), Box<dyn std::error::Error>> 
                     wait_for_keypress()?;
                 }
             }
-            MenuChoice::StartChess => {
-                if let Err(e) = start_game_flow(&mut session, GameType::Chess).await {
-                    println!("{}", format!("Game error: {e}").red());
-                    println!("\nPress any key to return to menu...");
-                    wait_for_keypress()?;
-                }
-            }
+            // MenuChoice::StartChess => {
+            //     if let Err(e) = start_game_flow(&mut session, GameType::Chess).await {
+            //         println!("{}", format!("Game error: {e}").red());
+            //         println!("\nPress any key to return to menu...");
+            //         wait_for_keypress()?;
+            //     }
+            // }
             MenuChoice::Stats => {
                 if let Err(e) = show_stats(&mut session).await {
                     println!("{}", format!("Error loading stats: {e}").red());
@@ -125,7 +125,7 @@ enum MenuChoice {
     StartTicTacToe,
     StartRockPaperScissors,
     StartBriscola,
-    StartChess,
+    // StartChess,
     Stats,
     Leaderboard,
     Exit,
@@ -159,10 +159,10 @@ async fn read_menu_choice(_session: &mut SessionState) -> io::Result<MenuChoice>
         ("1".to_string(), "Start Tic-Tac-Toe Game".to_string()),
         ("2".to_string(), "Start Rock-Paper-Scissors Game".to_string()),
         ("3".to_string(), "Start Briscola Game".to_string()),
-        ("4".to_string(), "Start Chess Game".to_string()),
-        ("5".to_string(), "Your Stats".to_string()),
-        ("6".to_string(), "Leaderboard".to_string()),
-        ("7".to_string(), "Exit".to_string()),
+        // ("4".to_string(), "Start Chess Game".to_string()),
+        ("4".to_string(), "Your Stats".to_string()),
+        ("5".to_string(), "Leaderboard".to_string()),
+        ("6".to_string(), "Exit".to_string()),
     ];
 
     let title = format!("v{VERSION}");
@@ -179,12 +179,12 @@ async fn read_menu_choice(_session: &mut SessionState) -> io::Result<MenuChoice>
                     "1" => return Ok(MenuChoice::StartTicTacToe),
                     "2" => return Ok(MenuChoice::StartRockPaperScissors),
                     "3" => return Ok(MenuChoice::StartBriscola),
-                    "4" => return Ok(MenuChoice::StartChess),
-                    "5" => return Ok(MenuChoice::Stats),
-                    "6" => return Ok(MenuChoice::Leaderboard),
-                    "7" => return Ok(MenuChoice::Exit),
+                    // "4" => return Ok(MenuChoice::StartChess),
+                    "4" => return Ok(MenuChoice::Stats),
+                    "5" => return Ok(MenuChoice::Leaderboard),
+                    "6" => return Ok(MenuChoice::Exit),
                     _ => {
-                        println!("{}", "Invalid choice. Please enter 1-7.".red());
+                        println!("{}", format!("Invalid choice. Please enter 1-{}.", menu_items.len() + 1).red());
                         continue;
                     }
                 }
