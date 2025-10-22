@@ -55,7 +55,7 @@ async fn redirect_to_https(Host(host): Host, uri: Uri) -> impl IntoResponse {
 
 fn parse_server_addrs() -> (String, String) {
     let server_url = std::env::var("SERVER_URL")
-        .unwrap_or_else(|_| "https://0.0.0.0".to_string());
+        .unwrap_or_else(|_| "http://localhost:3000".to_string());
 
     // Parse the URL to extract protocol and port
     let url = server_url.trim();

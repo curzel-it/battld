@@ -7,27 +7,31 @@
 
 Battld is a hub for turn-based multiplayer games you can play in the terminal.
 
-Join the Beta!
+I had this idea, seemed cool, got bored.
 
-Just need to run the client, a server is running at [battld.curzel.it](https://battld.curzel.it)
+Maybe I'll come back to it, some day... 💀
 
-## Run the client
+## Run the thing
 You'll need rust, cargo, etc, then:
 ```bash
 git clone https://github.com/curzel-it/battld
 cd battld
+cargo run --bin server &
 cargo run --bin client
 ```
 
-By default a `config.json` is automatically created at runtime, pointed to `battld.curzel.it`, where I am running a public beta.
+A `config.json` is automatically created at runtime, pointed to `localhost:3000`.
 
 You will be prompted to create a ssh keys pair and provide a username. 
 There is no account recovery whatsoever, so be sure to keep your keys around if you like the game.
 
 ## Games
-If you have ideas please send them over!
+
+### Chess
+There is a chess prototype, unfinished, unpolished, not selectable in the ui.
 
 ### Briscola
+Briscola is an italian card game, more info [here](https://en.wikipedia.org/wiki/Briscola):
 ```
   Briscola:   Deck:          Opponent played:   
   ╭───────╮                  ╭───────╮
@@ -89,19 +93,3 @@ If you have ideas please send them over!
   Enter your choice (rock/paper/scissors):
   > 
 ```
-
-## BYOC - Bring Your Own Client
-Custom clients will always be allowed for all games on the platform, so, if you want to develop something cool, go ahead!
-
-There is also no reason in 2025 to even attempt to fight aganist bots, so yeah, bots allowed.
-
-There will be (when out of beta), however, VERY stringent rate limiting for both API and WebSockets, making the use of Bots a double edged sword.
-
-As for now, there's no documentation of the API or the WebSockets messages whatsoever, so I suggest you run a local http server and use a proxy to see how everything works.
-
-## Run the server
-Feel free to run your own server, just note this is still in active development:
-```bash
-cargo run --bin server
-```
-Good luck!
